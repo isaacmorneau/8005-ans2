@@ -7,19 +7,17 @@
 #include <sys/epoll.h>
 #include <getopt.h>
 
-#include "server.h"
 #include "client.h"
+#include "common.h"
 
-#define SOCKOPTS "cshp:a:i:o:"
+#define SOCKOPTS "cshp:a:"
 
 void print_help(void){
     printf("usage options:\n"
             "\t[c]lient - set the mode to client\n"
             "\t[s]erver - set the mode to server\n"
-            "\t[p]ort <1-65535>> - the port to connect to for commands\n"
+            "\t[p]ort <1-65535>> - the port to connect to\n"
             "\t[a]ddress <ip or url> - only used by client for connecting to a server\n"
-            "\t[i]nput <path> - the location of the file to read from\n"
-            "\t[o]utput <path> - the location of the file to write to\n"
             "\t[h]elp - this message\n");
 }
 
@@ -37,8 +35,6 @@ int main (int argc, char *argv[]) {
     char * port = 0;
     char * data = 0;
     char * address = 0;
-    char * input = 0;
-    char * output = 0;
 
     while (1) {
         int option_index = 0;
@@ -49,8 +45,6 @@ int main (int argc, char *argv[]) {
             {"help",        no_argument,       0, 'h' },
             {"port",        required_argument, 0, 'p' },
             {"address",     required_argument, 0, 'a' },
-            {"input",       required_argument, 0, 'i' },
-            {"output",      required_argument, 0, 'o' },
             {0,             0,                 0, 0   }
         };
 
@@ -79,12 +73,6 @@ int main (int argc, char *argv[]) {
                 break;
             case 'a':
                 address = optarg;
-                break;
-            case 'i':
-                input = optarg;
-                break;
-            case 'o':
-                output = optarg;
                 break;
             case 'h':
             case '?':

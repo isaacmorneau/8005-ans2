@@ -16,7 +16,7 @@
 
 #define MAXEVENTS 256
 
-void client(const char rconst char * port, const char * data) {
+void client(const char rconst char * port) {
     int efd;
     struct epoll_event event;
     struct epoll_event *events;
