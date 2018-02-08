@@ -13,25 +13,26 @@
 
 #include "client.h"
 #include "common.h"
+#include "wrapper.h"
 
 #define MAXEVENTS 256
 
-void add_client_con(const char * address, const char * port, struct epoll_event * efd) {
-    struct epoll_event event;
+void add_client_con(const char * address, const char * port, int efd) {
+    static struct epoll_event event;
     connection * con;
 
     con = (connection *)calloc(1, sizeof(connection));
 
-    init_connection(conn, make_connected(address, port));
+    init_connection(con, make_connected(address, port));
     //cant add EPOLLRDHUP as EPOLLEXCLUSIVE would then fail
     //instead check for a read of 0
     event.events = EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE | EPOLLET;
     event.data.ptr = con;
-    //TODO check this as we may need to calloc theevent
-    check(epoll_ctl(*efd, EPOLL_CTL_ADD, con->sockfd, &event) != -1);
+    //we dont need to calloc the event its coppied.
+    check(epoll_ctl(efd, EPOLL_CTL_ADD, con->sockfd, &event) != -1);
 }
 
-void client(const char * address,  const char * port) {
+void client(const char * address,  const char * port, int initial, int rate) {
     int efd;
     struct epoll_event event;
     struct epoll_event *events;
@@ -39,6 +40,8 @@ void client(const char * address,  const char * port) {
     check((efd = epoll_create1(0)) != -1);
     //buffer where events are returned
     events = calloc(MAXEVENTS, sizeof(event));
+    for(int i = 0; i < initial; ++i)
+        add_client_con(address, port, efd);
     //TODO split off gradual increase of client # threads
 #pragma omp parallel
     while (1) {
@@ -63,6 +66,5 @@ void client(const char * address,  const char * port) {
         }
     }
     free(events);
-    close(sfd);
-    return 0;
+    close(efd);
 }

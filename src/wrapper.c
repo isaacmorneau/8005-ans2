@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -109,7 +110,20 @@ int make_bound(const char * port) {
     return sfd;
 }
 
+static char message[TCP_WINDOW_CAP];
 int send_pipe(connection * con) {
+    if(con->pipe_bytes == 0) {//fill it up each time its empty, might be faster to just top it up TODO check later
+        con->pipe_bytes = fill_pipe(con, message, TCP_WINDOW_CAP);
+    }
+    int ret;
+    while (1) {
+        check(ret = splice(con->out_pipe[0], 0, con->sockfd, 0, TCP_WINDOW_CAP, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK) != -1
+                || errno != EAGAIN);
+        if (ret == 0) {
+            break;
+        }
+        printf("wrote: %d\n", ret);
+    }
     return 0;
 }
 int fill_pipe(connection * con, const char * buf, size_t len) {
@@ -123,7 +137,7 @@ int fill_pipe(connection * con, const char * buf, size_t len) {
     return wrote;
 }
 //multithreaded garbage write, never read from this
-char blackhole[TCP_WINDOW_CAP];
+static char blackhole[TCP_WINDOW_CAP];
 int black_hole_read(connection * con) {
     int read_bytes = 0, tmp;
     //spinlock on emptying the response

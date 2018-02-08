@@ -10,12 +10,14 @@
 #include "client.h"
 #include "common.h"
 
-#define SOCKOPTS "cshp:a:"
+#define SOCKOPTS "cshp:a:i:r:"
 
 void print_help(void){
     printf("usage options:\n"
             "\t[c]lient - set the mode to client\n"
             "\t[s]erver - set the mode to server\n"
+            "\t[i]nitial - set the number of clients to start with\n"
+            "\t[r]ate - set the rate of how often to add new clients\n"
             "\t[p]ort <1-65535>> - the port to connect to\n"
             "\t[a]ddress <ip or url> - only used by client for connecting to a server\n"
             "\t[h]elp - this message\n");
@@ -30,11 +32,11 @@ int main (int argc, char *argv[]) {
 
     bool server_mode = 0;
     bool client_mode = 0;
-    int connect_mode = 0;
 
     char * port = 0;
-    char * data = 0;
     char * address = 0;
+
+    int initial, rate;
 
     while (1) {
         int option_index = 0;
@@ -43,6 +45,8 @@ int main (int argc, char *argv[]) {
             {"client",      no_argument,       0, 'c' },
             {"server",      no_argument,       0, 's' },
             {"help",        no_argument,       0, 'h' },
+            {"initial",        required_argument, 0, 'i' },
+            {"rate",        required_argument, 0, 'r' },
             {"port",        required_argument, 0, 'p' },
             {"address",     required_argument, 0, 'a' },
             {0,             0,                 0, 0   }
@@ -68,6 +72,12 @@ int main (int argc, char *argv[]) {
                 }
                 server_mode = 1;
                 break;
+            case 'i':
+                initial = atoi(optarg);
+                break;
+            case 'r':
+                rate = atoi(optarg);
+                break;
             case 'p':
                 port = optarg;
                 break;
@@ -83,9 +93,9 @@ int main (int argc, char *argv[]) {
     }
 
     if (server_mode) {
-        return server(port);
+//        return server(port);
     } else if (client_mode) {
-        return client(address, port);
+        client(address, port, initial, rate);
     } else {
         printf("Mode not specified, exiting\n");
         return 1;

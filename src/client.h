@@ -1,6 +1,6 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-int client(char * address, char * port);
+void client(const char * address, const char * port, int initial, int rate);
 
 #endif
