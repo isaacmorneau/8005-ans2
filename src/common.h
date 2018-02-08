@@ -2,14 +2,19 @@
 #define COMMON_H
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #define TCP_WINDOW_CAP 4096
 
 #define check(expr)\
     do {\
         if (!(expr)) {\
-            fprintf(stderr, "file: %s@%d\nfunction %s:", __FILE__, __LINE__, __FUNCTION__);\
-            perror(#expr);\
+            fprintf(stderr, "%s::%s::%d\n\t", __FILE__, __FUNCTION__, __LINE__);\
+            if (errno != 0) {\
+                perror(#expr);\
+            } else { \
+                fprintf(stderr, #expr "\n");\
+            }\
             exit(1);\
         }\
     } while(0)
