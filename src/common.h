@@ -1,5 +1,10 @@
 #ifndef COMMON_H
 #define COMMON_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -21,5 +26,8 @@
 
 void set_fd_limit();
 
+#ifdef __cplusplus
+}
 #endif
 
+#endif

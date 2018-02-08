@@ -1,6 +1,10 @@
 #ifndef WRAPPER_H
 #define WRAPPER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdlib.h>
 
 typedef struct connection {
@@ -21,5 +25,9 @@ int make_connected(const char * address, const char * port);
 int send_pipe(connection * con);
 int fill_pipe(connection * con, const char * buff, size_t len);
 int black_hole_read(connection * con);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
