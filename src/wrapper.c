@@ -24,10 +24,10 @@ void enable_keepalive(int sockfd) {
     int idle = 1;
     int interval = 1;
     int maxpkt = 10;
-    check(setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(int)) != -1);
-    check(setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(int)) != -1);
-    check(setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(int)) != -1);
-    check(setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPCNT, &maxpkt, sizeof(int)) != -1);
+    ensure(setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(int)) != -1);
+    ensure(setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPIDLE, &idle, sizeof(int)) != -1);
+    ensure(setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPINTVL, &interval, sizeof(int)) != -1);
+    ensure(setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPCNT, &maxpkt, sizeof(int)) != -1);
 }
 
 void set_recv_window(int sockfd) {
@@ -41,7 +41,7 @@ void set_recv_window(int sockfd) {
 void init_connection(connection * con, int sockfd) {
     con->pipe_bytes = 0;
     con->sockfd = sockfd;
-    check(pipe(con->out_pipe) != -1);
+    ensure(pipe(con->out_pipe) != -1);
 }
 
 void close_connection(connection * con) {
@@ -52,11 +52,11 @@ void close_connection(connection * con) {
     }
 }
 
-void make_non_blocking (int sfd) {
+void set_non_blocking (int sfd) {
     int flags;
-    check((flags = fcntl(sfd, F_GETFL, 0)) != -1);
+    ensure((flags = fcntl(sfd, F_GETFL, 0)) != -1);
     flags |= O_NONBLOCK;
-    check(fcntl(sfd, F_SETFL, flags) != -1);
+    ensure(fcntl(sfd, F_SETFL, flags) != -1);
 }
 
 int make_connected(const char * address, const char * port) {
@@ -67,7 +67,7 @@ int make_connected(const char * address, const char * port) {
     hints.ai_family = AF_UNSPEC;     // Return IPv4 and IPv6 choices
     hints.ai_socktype = SOCK_STREAM; // We want a TCP socket
     hints.ai_flags = AI_PASSIVE;     // All interfaces
-    check(getaddrinfo(address, port, &hints, &result) != 0);
+    ensure(getaddrinfo(address, port, &hints, &result) == 0);
     for (rp = result; rp != 0; rp = rp->ai_next) {
         sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         if (sfd == -1)
@@ -78,7 +78,7 @@ int make_connected(const char * address, const char * port) {
         }
         close(sfd);
     }
-    check(!rp);
+    ensure(rp);
     freeaddrinfo(result);
     return sfd;
 }
@@ -91,56 +91,73 @@ int make_bound(const char * port) {
     hints.ai_family = AF_UNSPEC;     // Return IPv4 and IPv6 choices
     hints.ai_socktype = SOCK_STREAM; // We want a TCP socket
     hints.ai_flags = AI_PASSIVE;     // All interfaces
-    check(getaddrinfo(0, port, &hints, &result) != 0);
+    ensure(getaddrinfo(0, port, &hints, &result) == 0);
     for (rp = result; rp != 0; rp = rp->ai_next) {
         sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
         if (sfd == -1) {
             continue;
         }
         int enable = 1;
-        check(setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1);
+        ensure(setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1);
         if (bind(sfd, rp->ai_addr, rp->ai_addrlen)) {
             //we managed to bind successfully
             break;
         }
         close(sfd);
     }
-    check(!rp);
+    ensure(rp);
     freeaddrinfo(result);
     return sfd;
 }
 
 static char message[TCP_WINDOW_CAP];
 int send_pipe(connection * con) {
-    if(con->pipe_bytes == 0) {//fill it up each time its empty, might be faster to just top it up TODO check later
-        con->pipe_bytes = fill_pipe(con, message, TCP_WINDOW_CAP);
-    }
+    fill_pipe(con, message, TCP_WINDOW_CAP);
     int ret;
+    int total = 0;
     while (1) {
-        check(ret = splice(con->out_pipe[0], 0, con->sockfd, 0, TCP_WINDOW_CAP, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK) != -1
-                || errno != EAGAIN);
-        if (ret == 0) {
-            break;
+        if ((ret = splice(con->out_pipe[0], 0, con->sockfd, 0, TCP_WINDOW_CAP, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK)) == -1) {
+            if (errno == EAGAIN) {
+                break;
+            } else {
+                perror("splice");
+                exit(1);
+            }
         }
-        printf("wrote: %d\n", ret);
+        if (ret == 0) {
+            fill_pipe(con, message, TCP_WINDOW_CAP);
+        }
+        total += ret;
     }
-    return 0;
+    return total;
 }
-int fill_pipe(connection * con, const char * buf, size_t len) {
+void fill_pipe(connection * con, const char * buf, size_t len) {
     struct iovec iv;
     iv.iov_base = (void*)buf;
     iv.iov_len = len;
-    int wrote = 0;
     //move does nothing to vmsplice and we cant gift unless we want to keep allocating the message
     //instead just copy it to skip the mallocs
-    check((wrote = vmsplice(con->out_pipe[1], &iv, 1, SPLICE_F_NONBLOCK)) != -1);
-    return wrote;
+    ensure(vmsplice(con->out_pipe[1], &iv, 1, SPLICE_F_NONBLOCK) != -1);
 }
 //multithreaded garbage write, never read from this
 static char blackhole[TCP_WINDOW_CAP];
 int black_hole_read(connection * con) {
     int read_bytes = 0, tmp;
     //spinlock on emptying the response
-    while ((tmp = read(con->sockfd, blackhole, TCP_WINDOW_CAP)) != -1) read_bytes += tmp;
+    do {
+        tmp = read(con->sockfd, blackhole, TCP_WINDOW_CAP);
+        if (tmp == -1) {
+            if (errno == EAGAIN) {
+                break;
+            } else {
+                perror("read");
+                exit(1);
+            }
+        } else if (tmp == 0) {
+            close_connection(con);
+            break;
+        }
+        read_bytes += tmp;
+    } while (1);
     return read_bytes;
 }

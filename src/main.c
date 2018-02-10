@@ -36,20 +36,21 @@ int main (int argc, char *argv[]) {
     char * port = 0;
     char * address = 0;
 
-    int initial, rate;
+    int initial = 1;
+    int rate = 0;
 
     while (1) {
         int option_index = 0;
 
         static struct option long_options[] = {
-            {"client",      no_argument,       0, 'c' },
-            {"server",      no_argument,       0, 's' },
-            {"help",        no_argument,       0, 'h' },
-            {"initial",        required_argument, 0, 'i' },
-            {"rate",        required_argument, 0, 'r' },
-            {"port",        required_argument, 0, 'p' },
-            {"address",     required_argument, 0, 'a' },
-            {0,             0,                 0, 0   }
+            {"client",  no_argument,       0, 'c' },
+            {"server",  no_argument,       0, 's' },
+            {"help",    no_argument,       0, 'h' },
+            {"initial", required_argument, 0, 'i' },
+            {"rate",    required_argument, 0, 'r' },
+            {"port",    required_argument, 0, 'p' },
+            {"address", required_argument, 0, 'a' },
+            {0,         0,                 0, 0   }
         };
 
         c = getopt_long(argc, argv, SOCKOPTS, long_options, &option_index);

@@ -23,7 +23,7 @@ int make_bound(const char * port);
 int make_connected(const char * address, const char * port);
 
 int send_pipe(connection * con);
-int fill_pipe(connection * con, const char * buff, size_t len);
+void fill_pipe(connection * con, const char * buff, size_t len);
 int black_hole_read(connection * con);
 
 #ifdef __cplusplus

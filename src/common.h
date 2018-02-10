@@ -11,15 +11,11 @@ extern "C" {
 
 #define TCP_WINDOW_CAP 4096
 
-#define check(expr)\
+#define ensure(expr)\
     do {\
         if (!(expr)) {\
             fprintf(stderr, "%s::%s::%d\n\t", __FILE__, __FUNCTION__, __LINE__);\
-            if (errno != 0) {\
-                perror(#expr);\
-            } else { \
-                fprintf(stderr, #expr "\n");\
-            }\
+            perror(#expr);\
             exit(1);\
         }\
     } while(0)
