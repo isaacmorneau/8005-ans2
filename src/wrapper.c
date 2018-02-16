@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <limits.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/types.h>
@@ -160,4 +161,48 @@ int black_hole_read(connection * con) {
         read_bytes += tmp;
     } while (1);
     return read_bytes;
+}
+
+int echo(connection * con) {
+    int total = 0;
+    while (1) {
+        //read max standard pipe allocation size
+        int nr = splice(con->sockfd, 0, con->out_pipe[1], 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK);
+        if (nr == -1 && errno != EAGAIN) {
+            perror("splice");
+        }
+        if (nr <= 0) {
+            break;
+        }
+        //printf("read: %d\n", nr);
+        do {
+            int ret = splice(con->out_pipe[0], 0, con->sockfd, 0, nr, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK);
+            if (ret <= 0) {
+                if (ret == -1 && errno != EAGAIN) {
+                    perror("splice2");
+                }
+                break;
+            }
+            total += ret;
+            //printf("wrote: %d\n", ret);
+            nr -= ret;
+        } while (nr);
+    }
+    return total;
+}
+
+int echo_harder(connection * con) {
+    int total = 0;
+    while (1) {
+        int ret = splice(con->out_pipe[0], 0, con->sockfd, 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK);
+        if (ret <= 0) {
+            if (ret == -1 && errno != EAGAIN) {
+                perror("splice");
+            }
+            break;
+        }
+        total += ret;
+        //printf("wrote: %d\n", ret);
+    }
+    return total;
 }

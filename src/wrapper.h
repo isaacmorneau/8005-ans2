@@ -1,6 +1,8 @@
 #ifndef WRAPPER_H
 #define WRAPPER_H
 
+#define MAXEVENTS 64
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -26,6 +28,8 @@ int send_pipe(connection * con);
 void fill_pipe(connection * con, const char * buff, size_t len);
 int black_hole_read(connection * con);
 
+int echo(connection * con);
+int echo_harder(connection * con);
 #ifdef __cplusplus
 }
 #endif

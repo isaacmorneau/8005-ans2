@@ -15,8 +15,6 @@
 #include "common.h"
 #include "wrapper.h"
 
-#define MAXEVENTS 256
-
 void add_client_con(const char * address, const char * port, int efd) {
     static struct epoll_event event;
     connection * con;
@@ -54,8 +52,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
         int n, i, bytes;
         n = epoll_wait(efd, events, MAXEVENTS, -1);
         for (i = 0; i < n; i++) {
-            if ((events[i].events & EPOLLERR) ||
-                    (events[i].events & EPOLLHUP)) { // error or unexpected close
+            if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
                 perror("epoll_wait");
                 close_connection(events[i].data.ptr);
                 continue;
