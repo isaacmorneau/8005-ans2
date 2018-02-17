@@ -32,6 +32,7 @@ void add_client_con(const char * address, const char * port, int efd) {
     //instead check for a read of 0
     event.events = EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE | EPOLLET;
     event.data.ptr = con;
+
     //we dont need to calloc the event its coppied.
     ensure(epoll_ctl(efd, EPOLL_CTL_ADD, con->sockfd, &event) != -1);
 }
@@ -44,13 +45,17 @@ void client(const char * address,  const char * port, int initial, int rate) {
     ensure((efd = epoll_create1(0)) != -1);
     //buffer where events are returned
     events = calloc(MAXEVENTS, sizeof(event));
+
     for(int i = 0; i < initial; ++i)
         add_client_con(address, port, efd);
+
     //TODO split off gradual increase of client # threads
 #pragma omp parallel
     while (1) {
         int n, i, bytes;
+
         n = epoll_wait(efd, events, MAXEVENTS, -1);
+
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
                 perror("epoll_wait");

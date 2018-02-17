@@ -20,6 +20,7 @@ void epoll_server(const char * port) {
     struct epoll_event event;
     struct epoll_event *events;
     connection * con;
+
     //make and bind the socket
     sfd = make_bound(port);
 
@@ -30,6 +31,7 @@ void epoll_server(const char * port) {
     init_connection(con, sfd);
     event.data.ptr = con;
     event.events = EPOLLIN | EPOLLOUT | EPOLLET | EPOLLEXCLUSIVE;
+
     ensure((s = epoll_ctl(efd, EPOLL_CTL_ADD, sfd, &event)) != -1 );
 
     // Buffer where events are returned (no more that 64 at the same time)
@@ -57,7 +59,8 @@ void epoll_server(const char * port) {
                             int infd, datafd;
                             char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
 
-                            in_len = sizeof in_addr;
+                            in_len = sizeof(in_addr);
+
                             infd = accept(sfd, &in_addr, &in_len);
                             if (infd == -1) {
                                 if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
