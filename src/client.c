@@ -67,6 +67,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
                     bytes = black_hole_read((connection *)events[i].data.ptr);
                     //printf("read %d\n",bytes);
                 }
+
                 if (events[i].events & EPOLLOUT) {//data can be written
                     bytes = send_pipe((connection *)events[i].data.ptr);
                     //printf("wrote %d\n",bytes);

@@ -96,6 +96,7 @@ void epoll_server(const char * port) {
                         echo((connection *)event.data.ptr);
                     }
                 }
+
                 if((events[i].events & EPOLLOUT)) {
                     //we are now notified that we can send the rest of the data
                     echo_harder((connection *)event.data.ptr);
