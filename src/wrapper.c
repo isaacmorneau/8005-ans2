@@ -99,7 +99,7 @@ int make_bound(const char * port) {
             continue;
         }
         int enable = 1;
-        ensure(setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1);
+        ensure(setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) != -1);
         if (bind(sfd, rp->ai_addr, rp->ai_addrlen)) {
             //we managed to bind successfully
             break;
