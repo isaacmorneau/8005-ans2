@@ -30,6 +30,7 @@ int black_hole_read(connection * con);
 
 int echo(connection * con);
 int echo_harder(connection * con);
+
 #ifdef __cplusplus
 }
 #endif

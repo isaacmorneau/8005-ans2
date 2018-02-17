@@ -24,6 +24,8 @@ void epoll_server(const char * port) {
     //make and bind the socket
     sfd = make_bound(port);
 
+    set_non_blocking(sfd);
+
     ensure((s = listen(sfd, SOMAXCONN)) != -1);
     ensure((efd = epoll_create1(0)) != -1);
 
@@ -37,7 +39,7 @@ void epoll_server(const char * port) {
     // Buffer where events are returned (no more that 64 at the same time)
     events = calloc(MAXEVENTS, sizeof(event));
 
-#pragma omp parallel
+//#pragma omp parallel
     while (1) {
         int n, i;
 
