@@ -8,6 +8,7 @@
 #include <getopt.h>
 
 #include "client.h"
+#include "epoll_server.h"
 #include "common.h"
 
 #define SOCKOPTS "cshp:a:i:r:"
@@ -33,7 +34,7 @@ int main (int argc, char *argv[]) {
     bool server_mode = 0;
     bool client_mode = 0;
 
-    char * port = 0;
+    char * port = "38945";
     char * address = 0;
 
     int initial = 1;
@@ -61,14 +62,14 @@ int main (int argc, char *argv[]) {
         switch (c) {
             case 'c':
                 if (server_mode) {
-                    printf("Server and client requested, exiting\n");
+                    puts("Server and client requested, exiting\n");
                     return 1;
                 }
                 client_mode = 1;
                 break;
             case 's':
                 if (client_mode) {
-                    printf("Client and server requested, exiting\n");
+                    puts("Client and server requested, exiting\n");
                     return 1;
                 }
                 server_mode = 1;
@@ -94,12 +95,12 @@ int main (int argc, char *argv[]) {
     }
 
     if (server_mode) {
-//        return server(port);
+        epoll_server(port);
     } else if (client_mode) {
         client(address, port, initial, rate);
     } else {
         printf("Mode not specified, exiting\n");
         return 1;
     }
-
+    return 0;
 }
