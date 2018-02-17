@@ -50,7 +50,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
         add_client_con(address, port, efd);
 
     //TODO split off gradual increase of client # threads
-//#pragma omp parallel
+#pragma omp parallel
     while (1) {
         int n, i, bytes;
 
