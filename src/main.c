@@ -34,7 +34,7 @@ int main (int argc, char *argv[]) {
     bool server_mode = 0;
     bool client_mode = 0;
 
-    char * port = "38945";
+    char * port = "54321";
     char * address = 0;
 
     int initial = 1;

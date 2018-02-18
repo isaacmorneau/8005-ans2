@@ -15,7 +15,7 @@
 #include "common.h"
 #include "wrapper.h"
 
-void add_client_con(const char * address, const char * port, int efd) {
+void add_client_con(const char * address, const char * port, int epoll_primary_fd, int epoll_fallback_fd) {
     static struct epoll_event event;
     connection * con;
 
@@ -30,32 +30,36 @@ void add_client_con(const char * address, const char * port, int efd) {
 
     //cant add EPOLLRDHUP as EPOLLEXCLUSIVE would then fail
     //instead check for a read of 0
-    event.events = EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE | EPOLLET;
     event.data.ptr = con;
 
     //we dont need to calloc the event its coppied.
-    ensure(epoll_ctl(efd, EPOLL_CTL_ADD, con->sockfd, &event) != -1);
+    event.events = EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE | EPOLLET;
+    ensure(epoll_ctl(epoll_primary_fd, EPOLL_CTL_ADD, con->sockfd, &event) != -1);
+
+    event.events = EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
+    ensure(epoll_ctl(epoll_fallback_fd, EPOLL_CTL_ADD, con->sockfd, &event) != -1);
 }
 
 void client(const char * address,  const char * port, int initial, int rate) {
-    int efd;
+    int epoll_primary_fd;
+    int epoll_fallback_fd;
     struct epoll_event event;
     struct epoll_event *events;
 
-    ensure((efd = epoll_create1(0)) != -1);
+    ensure((epoll_primary_fd = epoll_create1(0)) != -1);
+    ensure((epoll_fallback_fd = epoll_create1(0)) != -1);
     //buffer where events are returned
     events = calloc(MAXEVENTS, sizeof(event));
 
     for(int i = 0; i < initial; ++i)
-        add_client_con(address, port, efd);
+        add_client_con(address, port, epoll_primary_fd, epoll_fallback_fd);
 
     //TODO split off gradual increase of client # threads
 #pragma omp parallel
     while (1) {
         int n, i, bytes;
 
-        n = epoll_wait(efd, events, MAXEVENTS, -1);
-
+        n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, 10);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
                 perror("epoll_wait");
@@ -63,18 +67,35 @@ void client(const char * address,  const char * port, int initial, int rate) {
                 continue;
             } else {
                 if (events[i].events & EPOLLIN) {//data has been echoed back or remote has closed connection
-                    //TODO record read bytes
                     bytes = black_hole_read((connection *)events[i].data.ptr);
-                    //printf("read %d\n",bytes);
                 }
 
                 if (events[i].events & EPOLLOUT) {//data can be written
                     bytes = send_pipe((connection *)events[i].data.ptr);
-                    //printf("wrote %d\n",bytes);
+                }
+            }
+        }
+        if (n == 0) {
+            puts("timeout detected, attempting to recover\n");
+            n = epoll_wait(epoll_fallback_fd, events, MAXEVENTS, 0);
+            for (i = 0; i < n; i++) {
+                if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
+                    perror("epoll_wait");
+                    close_connection(events[i].data.ptr);
+                    continue;
+                } else {
+                    if (events[i].events & EPOLLIN) {//data has been echoed back or remote has closed connection
+                        bytes = black_hole_read((connection *)events[i].data.ptr);
+                    }
+
+                    if (events[i].events & EPOLLOUT) {//data can be written
+                        bytes = send_pipe((connection *)events[i].data.ptr);
+                    }
                 }
             }
         }
     }
     free(events);
-    close(efd);
+    close(epoll_primary_fd);
+    close(epoll_fallback_fd);
 }
