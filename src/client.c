@@ -59,7 +59,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
     while (1) {
         int n, i, bytes;
 
-        n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, 10);
+        n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, 0);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
                 perror("epoll_wait");
@@ -75,8 +75,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
                 }
             }
         }
-        if (n == 0) {
-            puts("timeout detected, attempting to recover\n");
+        if (n == 0) { //timeout occured, fallback to level triggered just to be safe
             n = epoll_wait(epoll_fallback_fd, events, MAXEVENTS, 0);
             for (i = 0; i < n; i++) {
                 if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close

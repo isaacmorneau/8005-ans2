@@ -49,7 +49,7 @@ void epoll_server(const char * port) {
 #pragma omp parallel
     while (1) {
         int n, i;
-        n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, 10);
+        n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, 0);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
                 // A socket got closed
@@ -113,8 +113,7 @@ void epoll_server(const char * port) {
                 }
             }
         }
-        if (n == 0) { //timeout occured
-            puts("timeout detected, attempting to recover\n");
+        if (n == 0) { //timeout occured, fallback to level triggered just to be safe
             n = epoll_wait(epoll_fallback_fd, events, MAXEVENTS, 0);
             for (i = 0; i < n; i++) {
                 if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
