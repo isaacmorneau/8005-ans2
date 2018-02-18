@@ -26,7 +26,7 @@ void epoll_server(const char * port) {
 
     connection * con;
 
-    int scaleback = 1;
+    int scaleback = 0;
 
     //make and bind the socket
     sfd = make_bound(port);
@@ -186,15 +186,15 @@ void epoll_server(const char * port) {
                 }
             }
             //if there was no event we are just waiting
-            //increase wait time to avoid the cycles
+            //increase wait time to avoid doing a mega core pin
             if (n == 0) {
-                scaleback *= 2;
+                scaleback = scaleback? scaleback * 2: 1;
             } else {//event did happen and we recovered. return to edge triggered
                 puts("recovered\n");
-                scaleback = 1;
+                scaleback = 0;
             }
         } else {
-            scaleback = 1;
+            scaleback = 0;
         }
     }
     free(events);

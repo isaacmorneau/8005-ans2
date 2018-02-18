@@ -47,7 +47,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
     struct epoll_event event;
     struct epoll_event *events;
 
-    int scaleback = 1;
+    int scaleback = 0;
 
     ensure((epoll_primary_fd = epoll_create1(0)) != -1);
     ensure((epoll_fallback_fd = epoll_create1(0)) != -1);
@@ -101,13 +101,13 @@ void client(const char * address,  const char * port, int initial, int rate) {
             //if there was no event we are just waiting
             //increase wait time to avoid the cycles
             if (n == 0) {
-                scaleback *= 2;
+                scaleback = scaleback? scaleback * 2: 1;
             } else {//event did happen and we recovered. return to edge triggered
                 puts("recovered\n");
-                scaleback = 1;
+                scaleback = 0;
             }
         } else {
-            scaleback = 1;
+            scaleback = 0;
         }
     }
     free(events);
