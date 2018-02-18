@@ -96,6 +96,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
         }
     }
     free(events);
+    close(sfd);
     close(epoll_primary_fd);
     close(epoll_fallback_fd);
 }

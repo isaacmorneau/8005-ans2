@@ -183,4 +183,6 @@ void epoll_server(const char * port) {
     }
     free(events);
     close(sfd);
+    close(epoll_primary_fd);
+    close(epoll_fallback_fd);
 }
