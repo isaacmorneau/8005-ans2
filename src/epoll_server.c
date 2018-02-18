@@ -56,6 +56,7 @@ void epoll_server(const char * port) {
 #pragma omp parallel
     while (1) {
         int n, i;
+        printf("current scale: %d\n",scaleback);
         n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, scaleback);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
@@ -189,6 +190,7 @@ void epoll_server(const char * port) {
             if (n == 0) {
                 scaleback *= 2;
             } else {//event did happen and we recovered. return to edge triggered
+                puts("recovered\n");
                 scaleback = 1;
             }
         }
