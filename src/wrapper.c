@@ -178,7 +178,7 @@ int black_hole_read(connection * con) {
     int read_bytes = 0, tmp;
     //spinlock on emptying the response
     while(1) {
-        tmp = recv(con->sockfd, blackhole, TCP_WINDOW_CAP, MSG_TRUNC);
+        tmp = recv(con->sockfd, blackhole, TCP_WINDOW_CAP, 0);
         if (tmp == -1) {
             if (errno == EAGAIN) {
                 break;

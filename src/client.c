@@ -51,6 +51,8 @@ void client(const char * address,  const char * port, int initial, int rate) {
 
     ensure((epoll_primary_fd = epoll_create1(0)) != -1);
     ensure((epoll_fallback_fd = epoll_create1(0)) != -1);
+
+    printf("primary fd: %d fallback: %d\n",epoll_primary_fd, epoll_fallback_fd);
     //buffer where events are returned
     events = calloc(MAXEVENTS, sizeof(event));
 

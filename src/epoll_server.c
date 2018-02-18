@@ -37,6 +37,8 @@ void epoll_server(const char * port) {
     ensure((epoll_primary_fd = epoll_create1(0)) != -1);
     ensure((epoll_fallback_fd = epoll_create1(0)) != -1);
 
+    printf("primary fd: %d fallback: %d\n",epoll_primary_fd, epoll_fallback_fd);
+
     con = (connection *)calloc(1, sizeof(connection));
     init_connection(con, sfd);
     event.data.ptr = con;
