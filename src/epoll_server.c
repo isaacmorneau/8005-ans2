@@ -193,6 +193,8 @@ void epoll_server(const char * port) {
                 puts("recovered\n");
                 scaleback = 1;
             }
+        } else {
+            scaleback = 1;
         }
     }
     free(events);

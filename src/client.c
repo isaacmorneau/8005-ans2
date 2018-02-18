@@ -106,6 +106,8 @@ void client(const char * address,  const char * port, int initial, int rate) {
                 puts("recovered\n");
                 scaleback = 1;
             }
+        } else {
+            scaleback = 1;
         }
     }
     free(events);
