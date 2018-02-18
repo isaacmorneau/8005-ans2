@@ -33,18 +33,21 @@ void add_client_con(const char * address, const char * port, int epoll_primary_f
     event.data.ptr = con;
 
     //we dont need to calloc the event its coppied.
-    event.events = EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE | EPOLLET;
-    ensure(epoll_ctl(epoll_primary_fd, EPOLL_CTL_ADD, con->sockfd, &event) != -1);
-
     event.events = EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
     ensure(epoll_ctl(epoll_fallback_fd, EPOLL_CTL_ADD, con->sockfd, &event) != -1);
+
+    event.events |= EPOLLET;
+    ensure(epoll_ctl(epoll_primary_fd, EPOLL_CTL_ADD, con->sockfd, &event) != -1);
 }
 
 void client(const char * address,  const char * port, int initial, int rate) {
     int epoll_primary_fd;
     int epoll_fallback_fd;
+
     struct epoll_event event;
     struct epoll_event *events;
+
+    int scaleback = 1;
 
     ensure((epoll_primary_fd = epoll_create1(0)) != -1);
     ensure((epoll_fallback_fd = epoll_create1(0)) != -1);
@@ -59,7 +62,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
     while (1) {
         int n, i, bytes;
 
-        n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, 0);
+        n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, scaleback);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
                 perror("epoll_wait");
@@ -91,6 +94,13 @@ void client(const char * address,  const char * port, int initial, int rate) {
                         bytes = send_pipe((connection *)events[i].data.ptr);
                     }
                 }
+            }
+            //if there was no event we are just waiting
+            //increase wait time to avoid the cycles
+            if (n == 0) {
+                scaleback *= 2;
+            } else {//event did happen and we recovered. return to edge triggered
+                scaleback = 1;
             }
         }
     }

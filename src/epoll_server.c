@@ -15,19 +15,24 @@
 #include "epoll_server.h"
 
 void epoll_server(const char * port) {
-    int sfd, s;
+    int sfd;
+
     int epoll_primary_fd;
     int epoll_fallback_fd;
+
     struct epoll_event event;
     struct epoll_event *events;
     struct epoll_event *events_fallback;
+
     connection * con;
+
+    int scaleback = 1;
 
     //make and bind the socket
     sfd = make_bound(port);
     set_non_blocking(sfd);
 
-    ensure((s = listen(sfd, SOMAXCONN)) != -1);
+    ensure(listen(sfd, SOMAXCONN) != -1);
 
     ensure((epoll_primary_fd = epoll_create1(0)) != -1);
     ensure((epoll_fallback_fd = epoll_create1(0)) != -1);
@@ -37,10 +42,10 @@ void epoll_server(const char * port) {
     event.data.ptr = con;
 
     event.events = EPOLLIN | EPOLLOUT | EPOLLET | EPOLLEXCLUSIVE;
-    ensure((s = epoll_ctl(epoll_primary_fd, EPOLL_CTL_ADD, sfd, &event)) != -1);
+    ensure(epoll_ctl(epoll_primary_fd, EPOLL_CTL_ADD, sfd, &event) != -1);
 
     event.events = EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
-    ensure((s = epoll_ctl(epoll_fallback_fd, EPOLL_CTL_ADD, sfd, &event)) != -1);
+    ensure(epoll_ctl(epoll_fallback_fd, EPOLL_CTL_ADD, sfd, &event) != -1);
 
     // Buffer where events are returned (no more that 64 at the same time)
     events = calloc(MAXEVENTS, sizeof(event));
@@ -49,7 +54,7 @@ void epoll_server(const char * port) {
 #pragma omp parallel
     while (1) {
         int n, i;
-        n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, 0);
+        n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, scaleback);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
                 // A socket got closed
@@ -79,11 +84,10 @@ void epoll_server(const char * port) {
                                 }
                             }
 
-                            s = getnameinfo(&in_addr, in_len, hbuf, sizeof hbuf, sbuf, sizeof sbuf, NI_NUMERICHOST | NI_NUMERICSERV);
-                            if (s == 0) {
-                                printf("Accepted connection on descriptor %d "
-                                        "(host=%s, port=%s)\n", infd, hbuf, sbuf);
-                            }
+                            ensure(getnameinfo(&in_addr, in_len, hbuf, sizeof hbuf, sbuf, sizeof sbuf,
+                                        NI_NUMERICHOST | NI_NUMERICSERV) == 0);
+                            printf("Accepted connection on descriptor %d "
+                                    "(host=%s, port=%s)\n", infd, hbuf, sbuf);
 
                             // Make the incoming socket non-blocking and add it to the
                             // list of fds to monitor.
@@ -94,11 +98,12 @@ void epoll_server(const char * port) {
 
                             event.data.ptr = con;
 
-                            event.events = EPOLLIN | EPOLLOUT | EPOLLET | EPOLLEXCLUSIVE;
-                            ensure(s = epoll_ctl(epoll_primary_fd, EPOLL_CTL_ADD, infd, &event) != -1);
-
                             event.events = EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
-                            ensure(s = epoll_ctl(epoll_fallback_fd, EPOLL_CTL_ADD, infd, &event) != -1);
+                            ensure(epoll_ctl(epoll_fallback_fd, EPOLL_CTL_ADD, infd, &event) != -1);
+
+                            event.events |= EPOLLET;
+                            ensure(epoll_ctl(epoll_primary_fd, EPOLL_CTL_ADD, infd, &event) != -1);
+
                         }
                         continue;
                     } else {
@@ -144,11 +149,10 @@ void epoll_server(const char * port) {
                                     }
                                 }
 
-                                s = getnameinfo(&in_addr, in_len, hbuf, sizeof hbuf, sbuf, sizeof sbuf, NI_NUMERICHOST | NI_NUMERICSERV);
-                                if (s == 0) {
-                                    printf("Accepted connection on descriptor %d "
-                                            "(host=%s, port=%s)\n", infd, hbuf, sbuf);
-                                }
+                                ensure(getnameinfo(&in_addr, in_len, hbuf, sizeof hbuf, sbuf, sizeof sbuf,
+                                            NI_NUMERICHOST | NI_NUMERICSERV) == 0);
+                                printf("Accepted connection on descriptor %d "
+                                        "(host=%s, port=%s)\n", infd, hbuf, sbuf);
 
                                 // Make the incoming socket non-blocking and add it to the
                                 // list of fds to monitor.
@@ -160,10 +164,10 @@ void epoll_server(const char * port) {
                                 event.data.ptr = con;
 
                                 event.events = EPOLLIN | EPOLLOUT | EPOLLET | EPOLLEXCLUSIVE;
-                                ensure(s = epoll_ctl(epoll_primary_fd, EPOLL_CTL_ADD, infd, &event) != -1);
+                                ensure(epoll_ctl(epoll_primary_fd, EPOLL_CTL_ADD, infd, &event) != -1);
 
                                 event.events = EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
-                                ensure(s = epoll_ctl(epoll_fallback_fd, EPOLL_CTL_ADD, infd, &event) != -1);
+                                ensure(epoll_ctl(epoll_fallback_fd, EPOLL_CTL_ADD, infd, &event) != -1);
                             }
                             continue;
                         } else {
@@ -177,6 +181,13 @@ void epoll_server(const char * port) {
                         echo_harder((connection *)event.data.ptr);
                     }
                 }
+            }
+            //if there was no event we are just waiting
+            //increase wait time to avoid the cycles
+            if (n == 0) {
+                scaleback *= 2;
+            } else {//event did happen and we recovered. return to edge triggered
+                scaleback = 1;
             }
         }
     }
