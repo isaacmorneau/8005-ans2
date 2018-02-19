@@ -27,6 +27,7 @@ void epoll_server(const char * port) {
     connection * con;
 
     int scaleback = 0;
+    int total_clients = 0;
 
     //make and bind the socket
     sfd = make_bound(port);
@@ -36,8 +37,6 @@ void epoll_server(const char * port) {
 
     ensure((epoll_primary_fd = epoll_create1(0)) != -1);
     ensure((epoll_fallback_fd = epoll_create1(0)) != -1);
-
-    printf("primary fd: %d fallback: %d\n",epoll_primary_fd, epoll_fallback_fd);
 
     con = (connection *)calloc(1, sizeof(connection));
     init_connection(con, sfd);
@@ -56,7 +55,7 @@ void epoll_server(const char * port) {
 #pragma omp parallel
     while (1) {
         int n, i;
-        printf("current scale: %d\n",scaleback);
+        //printf("current scale: %d\n",scaleback);
         n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, scaleback);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
@@ -89,8 +88,9 @@ void epoll_server(const char * port) {
 
                             ensure(getnameinfo(&in_addr, in_len, hbuf, sizeof hbuf, sbuf, sizeof sbuf,
                                         NI_NUMERICHOST | NI_NUMERICSERV) == 0);
-                            printf("Accepted connection on descriptor %d "
-                                    "(host=%s, port=%s)\n", infd, hbuf, sbuf);
+                            ++total_clients;
+                            printf("Accepted connection %d on descriptor %d "
+                                    "(host=%s, port=%s)\n", total_clients, infd, hbuf, sbuf);
 
                             // Make the incoming socket non-blocking and add it to the
                             // list of fds to monitor.
@@ -190,7 +190,7 @@ void epoll_server(const char * port) {
             if (n == 0) {
                 scaleback = scaleback? scaleback * 2: 1;
             } else {//event did happen and we recovered. return to edge triggered
-                puts("recovered\n");
+                //puts("recovered\n");
                 scaleback = 0;
             }
         } else {

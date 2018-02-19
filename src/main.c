@@ -18,7 +18,7 @@ void print_help(void){
             "\t[c]lient - set the mode to client\n"
             "\t[s]erver - set the mode to server\n"
             "\t[i]nitial - set the number of clients to start with\n"
-            "\t[r]ate - set the rate of how often to add new clients\n"
+            "\t[r]ate - milisecond delay before adding new clients\n"
             "\t[p]ort <1-65535>> - the port to connect to\n"
             "\t[a]ddress <ip or url> - only used by client for connecting to a server\n"
             "\t[h]elp - this message\n");
