@@ -134,20 +134,16 @@ int make_bound(const char * port) {
     return sfd;
 }
 
-static char message[TCP_WINDOW_CAP];
 int send_pipe(connection * con) {
     int ret;
     int total = 0;
 
     while (1) {
+        fill_pipe(con);
         ensure_nonblock((ret = splice(con->out_pipe[0], 0, con->sockfd, 0, TCP_WINDOW_CAP,
                         SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK)) != -1);
         if (ret == -1) {
             break;
-        }
-
-        if (ret == 0) {
-            fill_pipe(con, message, TCP_WINDOW_CAP);
         }
 
         total += ret;
@@ -156,11 +152,12 @@ int send_pipe(connection * con) {
     return total;
 }
 
-void fill_pipe(connection * con, const char * buf, size_t len) {
+static char message[TCP_WINDOW_CAP];
+void fill_pipe(connection * con) {
     struct iovec iv;
 
-    iv.iov_base = (void*)buf;
-    iv.iov_len = len;
+    iv.iov_base = (void*)message;
+    iv.iov_len = TCP_WINDOW_CAP;
     //move does nothing to vmsplice and we cant gift unless we want to keep allocating the message
     //instead just copy it to skip the mallocs
     ensure_nonblock(vmsplice(con->out_pipe[1], &iv, 1, SPLICE_F_NONBLOCK) != -1);

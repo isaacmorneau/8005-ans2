@@ -92,6 +92,8 @@ void epoll_server(const char * port) {
                             // Make the incoming socket non-blocking and add it to the
                             // list of fds to monitor.
                             set_non_blocking(infd);
+                            enable_keepalive(infd);
+                            set_recv_window(infd);
 
                             ensure(con = calloc(1, sizeof(connection)));
 
