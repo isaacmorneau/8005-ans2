@@ -27,8 +27,6 @@
 --------------------------------------------------------------------------------------------------*/
 #include "socketwrappers.h"
 
-using namespace std;
-
 /*-----------------------------------------------------------------------------------------------
 -- FUNCTION:   Socket
 --
@@ -221,7 +219,7 @@ void ConfigServerSocket(struct sockaddr_in *servaddr, int port) {
 -- NOTES:      wrapper function for configuring a address structure for client use with validation
 ----------------------------------------------------------------------------------------------- */
 void ConfigClientSocket(struct sockaddr_in *servaddr, const char* ip, int port) {
-	hostent* hp;
+	struct hostent* hp;
 	
 	if((hp = gethostbyname(ip)) == NULL) {
 		printf("Unknown server address %s\n", ip);
@@ -251,16 +249,11 @@ void ConfigClientSocket(struct sockaddr_in *servaddr, const char* ip, int port) 
 --
 -- NOTES:      wrapper function for connecting to a server with validation, for client user
 ----------------------------------------------------------------------------------------------- */
-bool Connect(int sockfd, struct sockaddr_in sockaddr) {
+void Connect(int sockfd, struct sockaddr_in sockaddr) {
 	if(connect(sockfd, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) == -1)
-    	{
 		printf("Client: Can't connec to server\n");
-        	return false;
-    	}
 
 	printf("Client: Connected!\n");
-
-	return true;
 }
 
 /*-----------------------------------------------------------------------------------------------
@@ -281,13 +274,10 @@ bool Connect(int sockfd, struct sockaddr_in sockaddr) {
 --
 -- NOTES:      wrapper function for sending a char array with validation
 ----------------------------------------------------------------------------------------------- */
-bool SendMsg(int sockfd, char* buffer) {
+void SendMsg(int sockfd, char* buffer) {
 	if(send(sockfd, buffer, BUFLEN, 0) == -1) {
 		perror("SendMsg Failed\n");
-		return false;
 	}
-
-	return true;
 }
 
 /*-----------------------------------------------------------------------------------------------
@@ -324,7 +314,6 @@ void SetNonBlocking(int socket) {
 	int n = fcntl(socket, F_SETFL, O_NONBLOCK);
 	if(n < 0) {
 		perror("Error setting socket to non-blocking");
-		exit(3);
 	}
 }
 

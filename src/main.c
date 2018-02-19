@@ -7,16 +7,20 @@
 #include <sys/epoll.h>
 #include <getopt.h>
 
+#include "poll_server.h"
+#include "server.h"
 #include "client.h"
 #include "epoll_server.h"
 #include "common.h"
 
-#define SOCKOPTS "cshp:a:i:r:"
+#define SOCKOPTS "csothp:a:i:r:"
 
 void print_help(void){
     printf("usage options:\n"
             "\t[c]lient - set the mode to client\n"
             "\t[s]erver - set the mode to server\n"
+            "\tp[o]llerver - set the mode to poll\n"
+            "\t[t]raditional erver - set the mode to traditional\n"
             "\t[i]nitial - set the number of clients to start with\n"
             "\t[r]ate - microsecond delay before adding new clients\n"
             "\t[p]ort <1-65535>> - the port to connect to\n"
@@ -31,7 +35,7 @@ int main (int argc, char *argv[]) {
     }
     int c;
 
-    bool server_mode = 0;
+    int server_mode = 0;
     bool client_mode = 0;
 
     char * port = "54321";
@@ -46,6 +50,8 @@ int main (int argc, char *argv[]) {
         static struct option long_options[] = {
             {"client",  no_argument,       0, 'c' },
             {"server",  no_argument,       0, 's' },
+            {"poll"  ,  no_argument,       0, 'o' },
+            {"traditional",  no_argument,       0, 't' },
             {"help",    no_argument,       0, 'h' },
             {"initial", required_argument, 0, 'i' },
             {"rate",    required_argument, 0, 'r' },
@@ -74,6 +80,20 @@ int main (int argc, char *argv[]) {
                 }
                 server_mode = 1;
                 break;
+            case 'o':
+                if (client_mode) {
+                    puts("Client and server requested, exiting\n");
+                    return 1;
+                }
+                server_mode = 2;
+                break;
+            case 't':
+                if (client_mode) {
+                    puts("Client and server requested, exiting\n");
+                    return 1;
+                }
+                server_mode = 3;
+                break;
             case 'i':
                 initial = atoi(optarg);
                 break;
@@ -97,7 +117,19 @@ int main (int argc, char *argv[]) {
     set_fd_limit();
 
     if (server_mode) {
-        epoll_server(port);
+        switch (server_mode) {
+            case 1:
+                epoll_server(port);
+                break;
+            case 2:
+                poll_server();
+                break;
+            case 3:
+                server();
+                break;
+            default:
+                return 0;
+        }
     } else if (client_mode) {
         client(address, port, initial, rate);
     } else {
