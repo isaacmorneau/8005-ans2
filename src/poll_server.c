@@ -4,11 +4,11 @@
 #include "common.h"
 #include "socketwrappers.h"
 #include "poll.h"
-#include "limits.h"
+#include <limits.h>
 
 #define SERV_PORT 8000
 #define LISTENQ 5
-#define OPEN_MAX 1024    //TODO: change to get max from sysconf (Advanced p. 51)
+#define OPEN_MAX USHRT_MAX//1024    //TODO: change to get max from sysconf (Advanced p. 51)
 #define BUFSIZE 1024
 
 void poll_server(const char* port) {
