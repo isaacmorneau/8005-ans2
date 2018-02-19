@@ -53,7 +53,7 @@ void * client_increase(void * rate_ptr) {
         usleep(rate);
         add_client_con();
         ++total_clients;
-        printf("total_clients: %d", total_clients);
+        printf("total_clients: %d\n", total_clients);
     }
 }
 
