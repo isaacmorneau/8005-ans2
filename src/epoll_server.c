@@ -57,7 +57,8 @@ void epoll_server(const char * port) {
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
                 // A socket got closed
-                perror("epoll_wait");
+                --total_clients;
+                printf("Client lost, closing fd %d\n", ((connection*)events[i].data.ptr)->sockfd);
                 close_connection(events[i].data.ptr);
                 continue;
             } else {

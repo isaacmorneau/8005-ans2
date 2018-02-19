@@ -72,8 +72,10 @@ void client(const char * address,  const char * port, int initial, int rate) {
     //buffer where events are returned
     events = calloc(MAXEVENTS, sizeof(event));
 
-    for(int i = 0; i < initial; ++i)
+#pragma omp parallel for
+    for(int i = 0; i < initial; ++i) {
         add_client_con();
+    }
 
     //if the rate is zero dont bother with the threads
     if (rate) {
@@ -88,16 +90,16 @@ void client(const char * address,  const char * port, int initial, int rate) {
         ensure(pthread_detach(tid) == 0);
     }
 
-    //TODO split off gradual increase of client # threads
 #pragma omp parallel
-    while (1) {
+    for (;;) {
         int n, i, bytes;
 
         //printf("current scale: %d\n",scaleback);
         n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, scaleback);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
-                perror("epoll_wait");
+                --total_clients;
+                printf("Client lost, closing fd %d\n", ((connection*)events[i].data.ptr)->sockfd);
                 close_connection(events[i].data.ptr);
                 continue;
             } else {
