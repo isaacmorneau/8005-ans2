@@ -122,7 +122,7 @@ int main (int argc, char *argv[]) {
                 epoll_server(port);
                 break;
             case 2:
-                poll_server();
+                poll_server(port);
                 break;
             case 3:
                 server();

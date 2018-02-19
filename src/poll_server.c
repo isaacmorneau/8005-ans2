@@ -1,24 +1,33 @@
 #include "poll_server.h"
 
+#include "wrapper.h"
+#include "common.h"
+#include "socketwrappers.h"
+#include "poll.h"
+#include "limits.h"
+
 #define SERV_PORT 8000
 #define LISTENQ 5
-#define OPEN_MAX 255    //TODO: change to get max from sysconf (Advanced p. 51)
+#define OPEN_MAX 1024    //TODO: change to get max from sysconf (Advanced p. 51)
 #define BUFSIZE 1024
 
-void poll_server() {
+void poll_server(const char* port) {
         int listenfd, maxi, i, n, nready, connfd, sockfd;
         struct pollfd client[OPEN_MAX];
         struct sockaddr_in cliaddr, servaddr;
         socklen_t clilen;
         char buf[BUFSIZE];
 
-        listenfd = Socket(AF_INET, SOCK_STREAM, 0);
-        SetReuse(listenfd);
-        bzero(&servaddr, sizeof(servaddr));
+//        listenfd = Socket(AF_INET, SOCK_STREAM, 0);
+        //SetReuse(listenfd);
+        listenfd = make_bound(port);
+
+/*        bzero(&servaddr, sizeof(servaddr));
         servaddr.sin_family = AF_INET;
         servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
         servaddr.sin_port = htons(SERV_PORT);
         Bind(listenfd, &servaddr);
+*/
         Listen(listenfd, LISTENQ);  //change to higher number
 
         client[0].fd = listenfd;
@@ -38,7 +47,7 @@ void poll_server() {
                                 if(client[i].fd < 0) {
                                         client[i].fd = connfd;  //save fd
                                         break;
-                                }        
+                                }
                         }
 
                         if(i == OPEN_MAX)
@@ -60,6 +69,7 @@ void poll_server() {
                                                 //connection reset
                                                 close(sockfd);
                                                 client[i].fd = -1;
+                                                puts("closed connection");
                                         } else {
                                                 perror("reading error");
                                         }
@@ -67,12 +77,14 @@ void poll_server() {
                                         //connection closed
                                         close(sockfd);
                                         client[i].fd = -1;
+                                        puts("closed connection");
+                                        exit(1);
                                 } else {
                                         write(sockfd, buf, n);
                                 }
 
                                 if(--nready <= 0) {
-                                        break;  //no more fds 
+                                        break;  //no more fds
                                 }
                         }
                 }
