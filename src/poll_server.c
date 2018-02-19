@@ -4,7 +4,8 @@
 #include "common.h"
 #include "socketwrappers.h"
 #include "poll.h"
-#include <limits.h>
+#include "limits.h"
+#include "omp.h"
 
 #define SERV_PORT 8000
 #define LISTENQ 5
@@ -37,6 +38,7 @@ void poll_server(const char* port) {
         }
         maxi = 0;
 
+#pragma omp parallel
         while(1) {
                 nready = poll(client, maxi + 1, -1);    //for infinite timeout
 
@@ -51,7 +53,7 @@ void poll_server(const char* port) {
                         }
 
                         if(i == OPEN_MAX)
-                                return;
+                                break;
                         client[i].events = POLLRDNORM;
                         if(i > maxi)
                                 maxi = i;       //max index
