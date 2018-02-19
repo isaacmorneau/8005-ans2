@@ -139,14 +139,11 @@ int send_pipe(connection * con) {
     int total = 0;
 
     while (1) {
+        fill_pipe(con);
         ensure_nonblock((ret = splice(con->out_pipe[0], 0, con->sockfd, 0, TCP_WINDOW_CAP,
                         SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK)) != -1);
         if (ret == -1) {
             break;
-        }
-
-        if (ret == 0) {
-            fill_pipe(con);
         }
 
         total += ret;
