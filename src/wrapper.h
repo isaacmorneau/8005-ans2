@@ -11,7 +11,6 @@ extern "C" {
 
 typedef struct connection {
     int out_pipe[2];
-    int pipe_bytes;
     int sockfd;
 } connection;
 

@@ -42,7 +42,6 @@ void set_recv_window(int sockfd) {
 
 
 void init_connection(connection * con, int sockfd) {
-    con->pipe_bytes = 0;
     con->sockfd = sockfd;
 
     ensure(pipe(con->out_pipe) != -1);
