@@ -10,6 +10,7 @@
 #include "client.h"
 #include "epoll_server.h"
 #include "common.h"
+#include "wrapper.h"
 
 #define SOCKOPTS "cshp:a:i:r:"
 
