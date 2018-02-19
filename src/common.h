@@ -12,7 +12,6 @@ extern "C" {
 #define TCP_WINDOW_CAP 4096
 
 #ifdef NDEBUG
-
 #define ensure(expr) (expr)
 #define ensure_nonblock(expr) (expr)
 #else

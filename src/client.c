@@ -116,7 +116,8 @@ void client(const char * address,  const char * port, int initial, int rate) {
             n = epoll_wait(epoll_fallback_fd, events, MAXEVENTS, 0);
             for (i = 0; i < n; i++) {
                 if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
-                    perror("epoll_wait");
+                    --total_clients;
+                    printf("Client lost, closing fd %d\n", ((connection*)events[i].data.ptr)->sockfd);
                     close_connection(events[i].data.ptr);
                     continue;
                 } else {
