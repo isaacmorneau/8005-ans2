@@ -135,7 +135,7 @@ int black_hole_read(connection * con) {
     int total = 0, ret;
     //spinlock on emptying the response
     while(1) {
-        ensure_nonblock(ret = read(con->sockfd, blackhole, TCP_WINDOW_CAP));
+        ensure_nonblock((ret = read(con->sockfd, blackhole, TCP_WINDOW_CAP)) != -1);
         if (ret == -1) {
             break;
         } else if (ret == 0) {
