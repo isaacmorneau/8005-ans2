@@ -20,6 +20,15 @@ extern "C" {
         }\
     } while(0)
 
+#define ensure_nonblock(expr)\
+    do {\
+        if (!(expr) && errno != EAGAIN && errno != EWOULDBLOCK) {\
+            fprintf(stderr, "%s::%s::%d\n\t", __FILE__, __FUNCTION__, __LINE__);\
+            perror(#expr);\
+            exit(1);\
+        }\
+    } while(0)
+
 void set_fd_limit();
 
 #ifdef __cplusplus

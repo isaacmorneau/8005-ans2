@@ -136,19 +136,14 @@ int make_bound(const char * port) {
 
 static char message[TCP_WINDOW_CAP];
 int send_pipe(connection * con) {
-    fill_pipe(con, message, TCP_WINDOW_CAP);
-
     int ret;
     int total = 0;
 
     while (1) {
-        if ((ret = splice(con->out_pipe[0], 0, con->sockfd, 0, TCP_WINDOW_CAP, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK)) == -1) {
-            if (errno == EAGAIN) {
-                break;
-            } else {
-                perror("splice");
-                exit(1);
-            }
+        ensure_nonblock((ret = splice(con->out_pipe[0], 0, con->sockfd, 0, TCP_WINDOW_CAP,
+                        SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK)) != -1);
+        if (ret == -1) {
+            break;
         }
 
         if (ret == 0) {
@@ -168,7 +163,7 @@ void fill_pipe(connection * con, const char * buf, size_t len) {
     iv.iov_len = len;
     //move does nothing to vmsplice and we cant gift unless we want to keep allocating the message
     //instead just copy it to skip the mallocs
-    ensure(vmsplice(con->out_pipe[1], &iv, 1, SPLICE_F_NONBLOCK) != -1);
+    ensure_nonblock(vmsplice(con->out_pipe[1], &iv, 1, SPLICE_F_NONBLOCK) != -1);
 }
 
 //multithreaded garbage write, never read from this
@@ -177,14 +172,9 @@ int black_hole_read(connection * con) {
     int read_bytes = 0, tmp;
     //spinlock on emptying the response
     while(1) {
-        tmp = recv(con->sockfd, blackhole, TCP_WINDOW_CAP, 0);
+        ensure_nonblock(tmp = recv(con->sockfd, blackhole, TCP_WINDOW_CAP, 0));
         if (tmp == -1) {
-            if (errno == EAGAIN) {
-                break;
-            } else {
-                perror("read");
-                exit(1);
-            }
+            break;
         } else if (tmp == 0) {
             close_connection(con);
             break;
@@ -201,11 +191,8 @@ int echo(connection * con) {
     while (1) {
         //read max standard pipe allocation size
         //nr is read amount
-        int nr = splice(con->sockfd, 0, con->out_pipe[1], 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK);
-
-        if (nr == -1 && errno != EAGAIN) {
-            perror("splice");
-        }
+        int nr;
+        ensure_nonblock(nr = splice(con->sockfd, 0, con->out_pipe[1], 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK));
         if (nr <= 0) {
             break;
         }
@@ -214,12 +201,10 @@ int echo(connection * con) {
 
         while (1) {
             //ret is wrote amount
-            int ret = splice(con->out_pipe[0], 0, con->sockfd, 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK);
+            int ret;
+            ensure_nonblock(ret = splice(con->out_pipe[0], 0, con->sockfd, 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK));
 
             if (ret <= 0) {
-                if (ret == -1 && errno != EAGAIN) {
-                    perror("splice2");
-                }
                 break;
             }
             total += ret;
@@ -233,12 +218,10 @@ int echo_harder(connection * con) {
     int total = 0;
 
     while (1) {
-        int ret = splice(con->out_pipe[0], 0, con->sockfd, 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK);
+        int ret;
+        ensure_nonblock(ret = splice(con->out_pipe[0], 0, con->sockfd, 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK));
 
         if (ret <= 0) {
-            if (ret == -1 && errno != EAGAIN) {
-                perror("splice");
-            }
             break;
         }
         total += ret;
