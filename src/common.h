@@ -29,8 +29,6 @@ extern "C" {
         }\
     } while(0)
 
-void set_fd_limit();
-
 #ifdef __cplusplus
 }
 #endif
