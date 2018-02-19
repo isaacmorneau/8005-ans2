@@ -24,7 +24,7 @@ int make_bound(const char * port);
 int make_connected(const char * address, const char * port);
 
 int send_pipe(connection * con);
-void fill_pipe(connection * con, const char * buff, size_t len);
+void fill_pipe(connection * con);
 int black_hole_read(connection * con);
 
 int echo(connection * con);

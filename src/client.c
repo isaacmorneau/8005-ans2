@@ -31,8 +31,9 @@ void add_client_con() {
 
     set_non_blocking(con->sockfd);
     //disable rate limiting and TODO check that keep alive stops after connection close
-    //enable_keepalive(con->sockfd);
-    //set_recv_window(con->sockfd);
+    enable_keepalive(con->sockfd);
+    set_recv_window(con->sockfd);
+    fill_pipe(con);
 
     //cant add EPOLLRDHUP as EPOLLEXCLUSIVE would then fail
     //instead check for a read of 0
