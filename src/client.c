@@ -50,7 +50,7 @@ int total_clients = 0;
 void * client_increase(void * rate_ptr) {
     int rate = *((int*)rate_ptr);
     while (1) {
-        sleep(rate);
+        usleep(rate);
         add_client_con();
         ++total_clients;
         printf("total_clients: %d", total_clients);
