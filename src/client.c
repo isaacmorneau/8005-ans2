@@ -15,8 +15,8 @@
 #include "common.h"
 #include "wrapper.h"
 
-char * gaddress;
-char * gport;
+const char ** gaddress;
+const char ** gport;
 
 int epoll_primary_fd;
 int epoll_fallback_fd;
@@ -27,13 +27,12 @@ void add_client_con() {
 
     con = (connection *)calloc(1, sizeof(connection));
 
-    init_connection(con, make_connected(gaddress, gport));
+    init_connection(con, make_connected(*gaddress, *gport));
 
     set_non_blocking(con->sockfd);
     //disable rate limiting and TODO check that keep alive stops after connection close
     enable_keepalive(con->sockfd);
     set_recv_window(con->sockfd);
-    fill_pipe(con);
 
     //cant add EPOLLRDHUP as EPOLLEXCLUSIVE would then fail
     //instead check for a read of 0
@@ -59,8 +58,8 @@ void * client_increase(void * rate_ptr) {
 }
 
 void client(const char * address,  const char * port, int initial, int rate) {
-    gaddress = address;
-    gport = port;
+    gaddress = &address;
+    gport = &port;
 
     struct epoll_event event;
     struct epoll_event *events;
@@ -107,7 +106,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
                 }
 
                 if (events[i].events & EPOLLOUT) {//data can be written
-                    bytes = send_pipe((connection *)events[i].data.ptr);
+                    bytes = white_hole_write((connection *)events[i].data.ptr);
                 }
             }
         }
@@ -124,14 +123,14 @@ void client(const char * address,  const char * port, int initial, int rate) {
                     }
 
                     if (events[i].events & EPOLLOUT) {//data can be written
-                        bytes = send_pipe((connection *)events[i].data.ptr);
+                        bytes = white_hole_write((connection *)events[i].data.ptr);
                     }
                 }
             }
             //if there was no event we are just waiting
             //increase wait time to avoid the cycles
             if (n == 0) {
-                scaleback = scaleback? scaleback * 2: 1;
+                scaleback = scaleback ? scaleback * 2: 1;
             } else {//event did happen and we recovered. return to edge triggered
                 //puts("recovered\n");
                 scaleback = 0;

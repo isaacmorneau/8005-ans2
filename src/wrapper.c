@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/resource.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -38,22 +39,6 @@ void set_recv_window(int sockfd) {
 
     setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, (char *)&rcvbuf, sizeof(rcvbuf));
     setsockopt(sockfd, SOL_SOCKET, TCP_WINDOW_CLAMP, (char *)&clamp, sizeof(clamp));
-}
-
-
-void init_connection(connection * con, int sockfd) {
-    con->sockfd = sockfd;
-
-    ensure(pipe(con->out_pipe) != -1);
-}
-
-void close_connection(connection * con) {
-    close(con->out_pipe[0]);
-    close(con->out_pipe[1]);
-
-    if (con->sockfd != -1) {
-        close(con->sockfd);
-    }
 }
 
 void set_non_blocking (int sfd) {
@@ -134,95 +119,76 @@ int make_bound(const char * port) {
     return sfd;
 }
 
-int send_pipe(connection * con) {
-    int ret;
-    int total = 0;
-
-    while (1) {
-        fill_pipe(con);
-        ensure_nonblock((ret = splice(con->out_pipe[0], 0, con->sockfd, 0, TCP_WINDOW_CAP,
-                        SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK)) != -1);
-        if (ret == -1) {
-            break;
-        }
-
+int white_hole_write(connection * con) {
+    int total = 0, ret;
+    while (con->bytes > 0) {//empty any existing data
+        ensure_nonblock((ret = write(con->sockfd, con->buffer, TCP_WINDOW_CAP)) != -1);
+        if (ret == -1) break;
         total += ret;
     }
-
     return total;
-}
-
-static char message[TCP_WINDOW_CAP];
-void fill_pipe(connection * con) {
-    struct iovec iv;
-
-    iv.iov_base = (void*)message;
-    iv.iov_len = TCP_WINDOW_CAP;
-    //move does nothing to vmsplice and we cant gift unless we want to keep allocating the message
-    //instead just copy it to skip the mallocs
-    ensure_nonblock(vmsplice(con->out_pipe[1], &iv, 1, SPLICE_F_NONBLOCK) != -1);
 }
 
 //multithreaded garbage write, never read from this
 static char blackhole[TCP_WINDOW_CAP];
 int black_hole_read(connection * con) {
-    int read_bytes = 0, tmp;
+    int total = 0, ret;
     //spinlock on emptying the response
     while(1) {
-        ensure_nonblock(tmp = recv(con->sockfd, blackhole, TCP_WINDOW_CAP, 0));
-        if (tmp == -1) {
+        ensure_nonblock(ret = read(con->sockfd, blackhole, TCP_WINDOW_CAP));
+        if (ret == -1) {
             break;
-        } else if (tmp == 0) {
-            close_connection(con);
+        } else if (ret == 0) {
+            close(con->sockfd);
             break;
         }
-        read_bytes += tmp;
+        total += ret;
     }
 
-    return read_bytes;
+    return total;
 }
 
 int echo(connection * con) {
-    int total = 0;
-
-    while (1) {
-        //read max standard pipe allocation size
-        //nr is read amount
-        int nr;
-        ensure_nonblock(nr = splice(con->sockfd, 0, con->out_pipe[1], 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK));
-        if (nr <= 0) {
-            break;
-        }
-
-        //printf("read: %d\n", nr);
-
-        while (1) {
-            //ret is wrote amount
-            int ret;
-            ensure_nonblock(ret = splice(con->out_pipe[0], 0, con->sockfd, 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK));
-
-            if (ret <= 0) {
-                break;
-            }
-            total += ret;
-            //printf("wrote: %d\n", ret);
-        }
+    int total = 0, ret;
+    while (con->bytes > 0) {//empty any existing data
+        ensure_nonblock((ret = write(con->sockfd, con->buffer + (TCP_WINDOW_CAP - con->bytes), con->bytes)) != -1);
+        if (ret == -1) break;
+        con->bytes -= ret;
+        total += ret;
     }
+    while (1) {
+        //read new data
+        ensure_nonblock((ret = read(con->sockfd, con->buffer, TCP_WINDOW_CAP)) != -1);
+        if (ret == -1) break;
+        con->bytes = ret;
+
+        //echo the data back
+        ensure_nonblock((ret = write(con->sockfd, con->buffer, con->bytes)) != -1);
+        if (ret == -1) break;
+        con->bytes -= ret;
+    }
+
     return total;
 }
 
 int echo_harder(connection * con) {
-    int total = 0;
-
-    while (1) {
-        int ret;
-        ensure_nonblock(ret = splice(con->out_pipe[0], 0, con->sockfd, 0, USHRT_MAX, SPLICE_F_MOVE | SPLICE_F_MORE | SPLICE_F_NONBLOCK));
-
-        if (ret <= 0) {
-            break;
-        }
+    int total = 0, ret;
+    while (con->bytes > 0) {//empty any existing data
+        ensure_nonblock((ret = write(con->sockfd, con->buffer + (TCP_WINDOW_CAP - con->bytes), con->bytes)) != -1);
+        if (ret == -1) break;
+        con->bytes -= ret;
         total += ret;
-        //printf("wrote: %d\n", ret);
     }
     return total;
 }
+
+void set_fd_limit() {
+    struct rlimit lim;
+    //ensure(getrlimit(RLIMIT_NOFILE, &lim) != -1);
+    //the kernel patch that allows for RLIM_INFINITY to work breaks stuff
+    //so we are restricted to finite values
+    lim.rlim_cur = (1UL << 20);
+    lim.rlim_max = (1UL << 20);
+    ensure(setrlimit(RLIMIT_NOFILE, &lim) != -1);
+}
+
