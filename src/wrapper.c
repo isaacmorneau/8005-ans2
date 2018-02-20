@@ -119,10 +119,11 @@ int make_bound(const char * port) {
     return sfd;
 }
 
+static char whitehole[TCP_WINDOW_CAP];
 int white_hole_write(connection * con) {
     int total = 0, ret;
     while (1) {
-        ensure_nonblock((ret = write(con->sockfd, con->buffer, TCP_WINDOW_CAP)) != -1);
+        ensure_nonblock((ret = write(con->sockfd, whitehole, TCP_WINDOW_CAP)) != -1);
         if (ret == -1) break;
         total += ret;
     }
@@ -130,15 +131,14 @@ int white_hole_write(connection * con) {
 }
 
 //multithreaded garbage write, never read from this
-static char blackhole[TCP_WINDOW_CAP];
 int black_hole_read(connection * con) {
     int total = 0, ret;
     //spinlock on emptying the response
     while(1) {
-        ensure_nonblock((ret = read(con->sockfd, blackhole, TCP_WINDOW_CAP)) != -1);
+        ensure_nonblock((ret = read(con->sockfd, con->buffer, TCP_WINDOW_CAP)) != -1);
         if (ret == -1) {
             break;
-        } else if (ret == 0) {
+        } else if (ret == 0) {//actually means the connection was closed
             close(con->sockfd);
             break;
         }
@@ -184,9 +184,9 @@ int echo_harder(connection * con) {
 
 void set_fd_limit() {
     struct rlimit lim;
-    //ensure(getrlimit(RLIMIT_NOFILE, &lim) != -1);
     //the kernel patch that allows for RLIM_INFINITY to work breaks stuff
-    //so we are restricted to finite values
+    //so we are restricted to finite values,
+    //this was found as the exact max via testing
     lim.rlim_cur = (1UL << 20);
     lim.rlim_max = (1UL << 20);
     ensure(setrlimit(RLIMIT_NOFILE, &lim) != -1);

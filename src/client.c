@@ -104,12 +104,12 @@ void client(const char * address,  const char * port, int initial, int rate) {
                 continue;
             } else {
                 if (events[i].events & EPOLLIN) {//data has been echoed back or remote has closed connection
-                    puts("EPOLLIN");
+                    //puts("EPOLLIN");
                     bytes = black_hole_read((connection *)events[i].data.ptr);
                 }
 
                 if (events[i].events & EPOLLOUT) {//data can be written
-                    puts("EPOLLOUT");
+                    //puts("EPOLLOUT");
                     bytes = white_hole_write((connection *)events[i].data.ptr);
                 }
             }
@@ -119,17 +119,17 @@ void client(const char * address,  const char * port, int initial, int rate) {
             for (i = 0; i < n; i++) {
                 if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
                     --total_clients;
-                    printf("Client lost, closing fd %d\n", ((connection*)events[i].data.ptr)->sockfd);
+                    //printf("Client lost, closing fd %d\n", ((connection*)events[i].data.ptr)->sockfd);
                     close_connection(events[i].data.ptr);
                     continue;
                 } else {
                     if (events[i].events & EPOLLIN) {//data has been echoed back or remote has closed connection
-                        puts("EPOLLIN2");
+                        //puts("EPOLLIN2");
                         bytes = black_hole_read((connection *)events[i].data.ptr);
                     }
 
                     if (events[i].events & EPOLLOUT) {//data can be written
-                        puts("EPOLLOUT2");
+                        //puts("EPOLLOUT2");
                         bytes = white_hole_write((connection *)events[i].data.ptr);
                     }
                 }
@@ -139,7 +139,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
             if (n == 0) {
                 scaleback = scaleback ? scaleback * 2: 1;
             } else {//event did happen and we recovered. return to edge triggered
-                puts("recovered");
+                //puts("recovered");
                 scaleback = 0;
             }
         } else {
