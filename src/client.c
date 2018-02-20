@@ -25,7 +25,7 @@ void add_client_con() {
     static struct epoll_event event;
     connection * con;
 
-    con = (connection *)calloc(1, sizeof(connection));
+    con = (connection *)malloc(sizeof(connection));
 
     init_connection(con, make_connected(*gaddress, *gport));
 

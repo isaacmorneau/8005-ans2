@@ -152,19 +152,36 @@ int echo(connection * con) {
     int total = 0, ret;
     while (con->bytes > 0) {//empty any existing data
         ensure_nonblock((ret = write(con->sockfd, con->buffer + (TCP_WINDOW_CAP - con->bytes), con->bytes)) != -1);
-        if (ret == -1) break;
+        if (ret == -1) {
+            break;
+        } else if (ret == 0) {//actually means the connection was closed
+            close(con->sockfd);
+            break;
+        }
         con->bytes -= ret;
         total += ret;
     }
     while (1) {
         //read new data
         ensure_nonblock((ret = read(con->sockfd, con->buffer, TCP_WINDOW_CAP)) != -1);
-        if (ret == -1) break;
+        if (ret == -1) {
+            break;
+        } else if (ret == 0) {//actually means the connection was closed
+            close(con->sockfd);
+            break;
+        }
         con->bytes = ret;
 
         //echo the data back
-        ensure_nonblock((ret = write(con->sockfd, con->buffer, con->bytes)) != -1);
-        if (ret == -1) break;
+        while (con->bytes > 0) {
+            ensure_nonblock((ret = write(con->sockfd, con->buffer + (TCP_WINDOW_CAP - con->bytes), con->bytes)) != -1);
+            if (ret == -1) break;
+            con->bytes -= ret;
+            total += ret;
+        }
+        if (con->bytes <= 0 || ret <= 0) {
+            break;
+        }
         con->bytes -= ret;
     }
 
@@ -174,7 +191,7 @@ int echo(connection * con) {
 int echo_harder(connection * con) {
     int total = 0, ret;
     while (con->bytes > 0) {//empty any existing data
-        ensure_nonblock((ret = write(con->sockfd, con->buffer + (TCP_WINDOW_CAP - con->bytes), con->bytes)) != -1);
+        ensure_nonblock((ret = write(con->sockfd, con->buffer + (TCP_WINDOW_CAP - 1 - con->bytes), con->bytes)) != -1);
         if (ret == -1) break;
         con->bytes -= ret;
         total += ret;

@@ -20,6 +20,7 @@ typedef struct connection {
     } while(0)
 
 #define init_connection(con, fd) do {\
+    ((connection*)con)->bytes = 0;\
     ((connection*)con)->sockfd = fd;\
     } while(0)
 
