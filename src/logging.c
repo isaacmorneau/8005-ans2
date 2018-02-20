@@ -9,5 +9,4 @@ void new_con(int fd) {
 }
 void lost_con(int fd) {
     printf("--tc:%d fd:%d\n", --total_clients, fd);
-
 }

@@ -32,7 +32,7 @@ void add_client_con() {
 
     set_non_blocking(con->sockfd);
     //disable rate limiting and TODO check that keep alive stops after connection close
-    enable_keepalive(con->sockfd);
+    //enable_keepalive(con->sockfd);
     set_recv_window(con->sockfd);
     new_con(con->sockfd);
 
@@ -70,7 +70,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
     //buffer where events are returned
     events = calloc(MAXEVENTS, sizeof(event));
 
-#pragma omp parallel for
+//#pragma omp parallel for
     for(int i = 0; i < initial; ++i) {
         add_client_con();
     }
