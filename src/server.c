@@ -2,7 +2,7 @@
 
 #define SERV_PORT 8000
 #define LISTENQ 5
-#define OPEN_MAX 255    //TODO: change to get max from sysconf (Advanced p. 51)
+#define OPEN_MAX USHRT_MAX//255    //TODO: change to get max from sysconf (Advanced p. 51)
 #define BUFSIZE 1024
 
 
@@ -24,7 +24,7 @@ void server() {
     Listen(listenfd, LISTENQ);  //change to higher number
 
     //must call waitpid()
-
+#pragma omp parallel
     while(1) {
         clilen = sizeof(cliaddr);
 
