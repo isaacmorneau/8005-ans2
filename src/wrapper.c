@@ -121,7 +121,7 @@ int make_bound(const char * port) {
 
 int white_hole_write(connection * con) {
     int total = 0, ret;
-    while (con->bytes > 0) {//empty any existing data
+    while (1) {
         ensure_nonblock((ret = write(con->sockfd, con->buffer, TCP_WINDOW_CAP)) != -1);
         if (ret == -1) break;
         total += ret;

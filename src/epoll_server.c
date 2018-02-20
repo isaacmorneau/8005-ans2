@@ -52,7 +52,7 @@ void epoll_server(const char * port) {
 #pragma omp parallel
     while (1) {
         int n, i;
-        //printf("current scale: %d\n",scaleback);
+        printf("current scale: %d\n",scaleback);
         n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, scaleback);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
@@ -63,13 +63,14 @@ void epoll_server(const char * port) {
                 continue;
             } else {
                 if((events[i].events & EPOLLIN)) {
+                    puts("EPOLLIN");
                     if (sfd == ((connection*)events[i].data.ptr)->sockfd) {
                         // We have a notification on the listening socket, which
                         // means one or more incoming connections.
                         while (1) {
                             struct sockaddr in_addr;
                             socklen_t in_len;
-                            int infd, datafd;
+                            int infd;
                             char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
 
                             in_len = sizeof(in_addr);
@@ -117,6 +118,7 @@ void epoll_server(const char * port) {
                 }
 
                 if((events[i].events & EPOLLOUT)) {
+                    puts("EPOLLOUT");
                     //we are now notified that we can send the rest of the data
                     echo_harder((connection *)event.data.ptr);
                 }
@@ -133,11 +135,13 @@ void epoll_server(const char * port) {
                     continue;
                 } else {
                     if((events[i].events & EPOLLIN)) {
+                        puts("EPOLLIN2");
                         //regular incomming message echo it back
                         echo((connection *)event.data.ptr);
                     }
 
                     if((events[i].events & EPOLLOUT)) {
+                        puts("EPOLLOUT2");
                         //we are now notified that we can send the rest of the data
                         echo_harder((connection *)event.data.ptr);
                     }
@@ -148,7 +152,7 @@ void epoll_server(const char * port) {
             if (n == 0) {
                 scaleback = scaleback? scaleback * 2: 1;
             } else {//event did happen and we recovered. return to edge triggered
-                //puts("recovered\n");
+                puts("recovered\n");
                 scaleback = 0;
             }
         } else {

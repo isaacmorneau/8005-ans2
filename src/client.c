@@ -104,10 +104,12 @@ void client(const char * address,  const char * port, int initial, int rate) {
                 continue;
             } else {
                 if (events[i].events & EPOLLIN) {//data has been echoed back or remote has closed connection
+                    puts("EPOLLIN");
                     bytes = black_hole_read((connection *)events[i].data.ptr);
                 }
 
                 if (events[i].events & EPOLLOUT) {//data can be written
+                    puts("EPOLLOUT");
                     bytes = white_hole_write((connection *)events[i].data.ptr);
                 }
             }
@@ -122,10 +124,12 @@ void client(const char * address,  const char * port, int initial, int rate) {
                     continue;
                 } else {
                     if (events[i].events & EPOLLIN) {//data has been echoed back or remote has closed connection
+                        puts("EPOLLIN2");
                         bytes = black_hole_read((connection *)events[i].data.ptr);
                     }
 
                     if (events[i].events & EPOLLOUT) {//data can be written
+                        puts("EPOLLOUT2");
                         bytes = white_hole_write((connection *)events[i].data.ptr);
                     }
                 }
@@ -135,7 +139,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
             if (n == 0) {
                 scaleback = scaleback ? scaleback * 2: 1;
             } else {//event did happen and we recovered. return to edge triggered
-                //puts("recovered\n");
+                puts("recovered");
                 scaleback = 0;
             }
         } else {
