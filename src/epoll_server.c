@@ -12,6 +12,7 @@
 
 #include "wrapper.h"
 #include "common.h"
+#include "logging.h"
 #include "epoll_server.h"
 
 void epoll_server(const char * port) {
@@ -27,7 +28,6 @@ void epoll_server(const char * port) {
     connection * con;
 
     int scaleback = 0;
-    int total_clients = 0;
 
     //make and bind the socket
     sfd = make_bound(port);
@@ -57,19 +57,19 @@ void epoll_server(const char * port) {
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
                 // A socket got closed
-                --total_clients;
-                printf("Client lost, closing fd %d\n", ((connection*)events[i].data.ptr)->sockfd);
+                lost_con(((connection*)events[i].data.ptr)->sockfd);
                 close_connection(events[i].data.ptr);
                 continue;
             } else {
                 if((events[i].events & EPOLLIN)) {
+                    //puts("EPOLLIN");
                     if (sfd == ((connection*)events[i].data.ptr)->sockfd) {
                         // We have a notification on the listening socket, which
                         // means one or more incoming connections.
                         while (1) {
                             struct sockaddr in_addr;
                             socklen_t in_len;
-                            int infd, datafd;
+                            int infd;
                             char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
 
                             in_len = sizeof(in_addr);
@@ -84,17 +84,12 @@ void epoll_server(const char * port) {
                                 }
                             }
 
-                            ensure(getnameinfo(&in_addr, in_len, hbuf, sizeof hbuf, sbuf, sizeof sbuf,
-                                        NI_NUMERICHOST | NI_NUMERICSERV) == 0);
-                            ++total_clients;
-                            printf("Accepted connection %d on descriptor %d "
-                                    "(host=%s, port=%s)\n", total_clients, infd, hbuf, sbuf);
-
                             // Make the incoming socket non-blocking and add it to the
                             // list of fds to monitor.
                             set_non_blocking(infd);
-                            enable_keepalive(infd);
+                            //enable_keepalive(infd);
                             set_recv_window(infd);
+                            new_con(infd);
 
                             ensure(con = calloc(1, sizeof(connection)));
 
@@ -117,6 +112,7 @@ void epoll_server(const char * port) {
                 }
 
                 if((events[i].events & EPOLLOUT)) {
+                    //puts("EPOLLOUT");
                     //we are now notified that we can send the rest of the data
                     echo_harder((connection *)event.data.ptr);
                 }
@@ -127,16 +123,18 @@ void epoll_server(const char * port) {
             for (i = 0; i < n; i++) {
                 if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
                     // A socket got closed
-                    perror("epoll_wait");
+                    lost_con(((connection*)events[i].data.ptr)->sockfd);
                     close_connection(events[i].data.ptr);
                     continue;
                 } else {
                     if((events[i].events & EPOLLIN)) {
+                        //puts("EPOLLIN2");
                         //regular incomming message echo it back
                         echo((connection *)event.data.ptr);
                     }
 
                     if((events[i].events & EPOLLOUT)) {
+                        //puts("EPOLLOUT2");
                         //we are now notified that we can send the rest of the data
                         echo_harder((connection *)event.data.ptr);
                     }

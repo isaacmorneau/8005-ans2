@@ -19,6 +19,7 @@
 #include <netinet/tcp.h>
 
 #include "wrapper.h"
+#include "logging.h"
 #include "common.h"
 
 void enable_keepalive(int sockfd) {
@@ -119,10 +120,11 @@ int make_bound(const char * port) {
     return sfd;
 }
 
+static char whitehole[TCP_WINDOW_CAP];
 int white_hole_write(connection * con) {
     int total = 0, ret;
-    while (con->bytes > 0) {//empty any existing data
-        ensure_nonblock((ret = write(con->sockfd, con->buffer, TCP_WINDOW_CAP)) != -1);
+    while (1) {
+        ensure_nonblock((ret = send(con->sockfd, whitehole, TCP_WINDOW_CAP, 0)) != -1);
         if (ret == -1) break;
         total += ret;
     }
@@ -130,17 +132,17 @@ int white_hole_write(connection * con) {
 }
 
 //multithreaded garbage write, never read from this
-static char blackhole[TCP_WINDOW_CAP];
 int black_hole_read(connection * con) {
     int total = 0, ret;
     //spinlock on emptying the response
     while(1) {
-        ensure_nonblock((ret = read(con->sockfd, blackhole, TCP_WINDOW_CAP)) != -1);
+        ensure_nonblock((ret = recv(con->sockfd, con->buffer, TCP_WINDOW_CAP, 0)) != -1);
         if (ret == -1) {
             break;
-        } else if (ret == 0) {
+        } else if (ret == 0) {//actually means the connection was closed
             close(con->sockfd);
-            break;
+            lost_con(con->sockfd);
+            return total;
         }
         total += ret;
     }
@@ -151,20 +153,39 @@ int black_hole_read(connection * con) {
 int echo(connection * con) {
     int total = 0, ret;
     while (con->bytes > 0) {//empty any existing data
-        ensure_nonblock((ret = write(con->sockfd, con->buffer + (TCP_WINDOW_CAP - con->bytes), con->bytes)) != -1);
-        if (ret == -1) break;
+        ensure_nonblock((ret = send(con->sockfd, con->buffer + (TCP_WINDOW_CAP - con->bytes), con->bytes, 0)) != -1);
+        if (ret == -1) {
+            break;
+        } else if (ret == 0) {//actually means the connection was closed
+            close(con->sockfd);
+            lost_con(con->sockfd);
+            return total;
+        }
         con->bytes -= ret;
         total += ret;
     }
     while (1) {
         //read new data
-        ensure_nonblock((ret = read(con->sockfd, con->buffer, TCP_WINDOW_CAP)) != -1);
-        if (ret == -1) break;
+        ensure_nonblock((ret = recv(con->sockfd, con->buffer, TCP_WINDOW_CAP, 0)) != -1);
+        if (ret == -1) {
+            break;
+        } else if (ret == 0) {//actually means the connection was closed
+            close(con->sockfd);
+            lost_con(con->sockfd);
+            return total;
+        }
         con->bytes = ret;
 
         //echo the data back
-        ensure_nonblock((ret = write(con->sockfd, con->buffer, con->bytes)) != -1);
-        if (ret == -1) break;
+        while (con->bytes > 0) {
+            ensure_nonblock((ret = send(con->sockfd, con->buffer + (TCP_WINDOW_CAP - con->bytes), con->bytes, 0)) != -1);
+            if (ret == -1) break;
+            con->bytes -= ret;
+            total += ret;
+        }
+        if (con->bytes <= 0 || ret <= 0) {
+            break;
+        }
         con->bytes -= ret;
     }
 
@@ -174,7 +195,7 @@ int echo(connection * con) {
 int echo_harder(connection * con) {
     int total = 0, ret;
     while (con->bytes > 0) {//empty any existing data
-        ensure_nonblock((ret = write(con->sockfd, con->buffer + (TCP_WINDOW_CAP - con->bytes), con->bytes)) != -1);
+        ensure_nonblock((ret = send(con->sockfd, con->buffer + (TCP_WINDOW_CAP - 1 - con->bytes), con->bytes, 0)) != -1);
         if (ret == -1) break;
         con->bytes -= ret;
         total += ret;
@@ -184,9 +205,9 @@ int echo_harder(connection * con) {
 
 void set_fd_limit() {
     struct rlimit lim;
-    //ensure(getrlimit(RLIMIT_NOFILE, &lim) != -1);
     //the kernel patch that allows for RLIM_INFINITY to work breaks stuff
-    //so we are restricted to finite values
+    //so we are restricted to finite values,
+    //this was found as the exact max via testing
     lim.rlim_cur = (1UL << 20);
     lim.rlim_max = (1UL << 20);
     ensure(setrlimit(RLIMIT_NOFILE, &lim) != -1);

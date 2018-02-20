@@ -13,6 +13,7 @@
 
 #include "client.h"
 #include "common.h"
+#include "logging.h"
 #include "wrapper.h"
 
 const char ** gaddress;
@@ -25,14 +26,15 @@ void add_client_con() {
     static struct epoll_event event;
     connection * con;
 
-    con = (connection *)calloc(1, sizeof(connection));
+    con = (connection *)malloc(sizeof(connection));
 
     init_connection(con, make_connected(*gaddress, *gport));
 
     set_non_blocking(con->sockfd);
     //disable rate limiting and TODO check that keep alive stops after connection close
-    enable_keepalive(con->sockfd);
+    //enable_keepalive(con->sockfd);
     set_recv_window(con->sockfd);
+    new_con(con->sockfd);
 
     //cant add EPOLLRDHUP as EPOLLEXCLUSIVE would then fail
     //instead check for a read of 0
@@ -46,21 +48,17 @@ void add_client_con() {
     ensure(epoll_ctl(epoll_primary_fd, EPOLL_CTL_ADD, con->sockfd, &event) != -1);
 }
 
-int total_clients = 0;
 void * client_increase(void * rate_ptr) {
     int rate = *((int*)rate_ptr);
     while (1) {
         usleep(rate);
         add_client_con();
-        ++total_clients;
-        printf("total_clients: %d\n", total_clients);
     }
 }
 
 void client(const char * address,  const char * port, int initial, int rate) {
     gaddress = &address;
     gport = &port;
-
     struct epoll_event event;
     struct epoll_event *events;
 
@@ -72,7 +70,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
     //buffer where events are returned
     events = calloc(MAXEVENTS, sizeof(event));
 
-#pragma omp parallel for
+//#pragma omp parallel for
     for(int i = 0; i < initial; ++i) {
         add_client_con();
     }
@@ -81,8 +79,6 @@ void client(const char * address,  const char * port, int initial, int rate) {
     if (rate) {
         pthread_attr_t attr;
         pthread_t tid;
-
-        total_clients = initial;
 
         ensure(pthread_attr_init(&attr) == 0);
         ensure(pthread_create(&tid, &attr, &client_increase, &rate) == 0);
@@ -98,16 +94,17 @@ void client(const char * address,  const char * port, int initial, int rate) {
         n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, scaleback);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
-                --total_clients;
-                printf("Client lost, closing fd %d\n", ((connection*)events[i].data.ptr)->sockfd);
+                lost_con(((connection*)events[i].data.ptr)->sockfd);
                 close_connection(events[i].data.ptr);
                 continue;
             } else {
                 if (events[i].events & EPOLLIN) {//data has been echoed back or remote has closed connection
+                    //puts("EPOLLIN");
                     bytes = black_hole_read((connection *)events[i].data.ptr);
                 }
 
                 if (events[i].events & EPOLLOUT) {//data can be written
+                    //puts("EPOLLOUT");
                     bytes = white_hole_write((connection *)events[i].data.ptr);
                 }
             }
@@ -116,15 +113,18 @@ void client(const char * address,  const char * port, int initial, int rate) {
             n = epoll_wait(epoll_fallback_fd, events, MAXEVENTS, 0);
             for (i = 0; i < n; i++) {
                 if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
-                    perror("epoll_wait");
+                    lost_con(((connection*)events[i].data.ptr)->sockfd);
+                    //printf("Client lost, closing fd %d\n", ((connection*)events[i].data.ptr)->sockfd);
                     close_connection(events[i].data.ptr);
                     continue;
                 } else {
                     if (events[i].events & EPOLLIN) {//data has been echoed back or remote has closed connection
+                        //puts("EPOLLIN2");
                         bytes = black_hole_read((connection *)events[i].data.ptr);
                     }
 
                     if (events[i].events & EPOLLOUT) {//data can be written
+                        //puts("EPOLLOUT2");
                         bytes = white_hole_write((connection *)events[i].data.ptr);
                     }
                 }
@@ -134,7 +134,7 @@ void client(const char * address,  const char * port, int initial, int rate) {
             if (n == 0) {
                 scaleback = scaleback ? scaleback * 2: 1;
             } else {//event did happen and we recovered. return to edge triggered
-                //puts("recovered\n");
+                //puts("recovered");
                 scaleback = 0;
             }
         } else {
