@@ -54,6 +54,8 @@ void poll_server(const char* port) {
 
                         if(i == OPEN_MAX)
                                 break;
+
+                        set_recv_window(connfd);
                         client[i].events = POLLRDNORM;
                         if(i > maxi)
                                 maxi = i;       //max index
