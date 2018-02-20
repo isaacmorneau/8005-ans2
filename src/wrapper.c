@@ -19,6 +19,7 @@
 #include <netinet/tcp.h>
 
 #include "wrapper.h"
+#include "logging.h"
 #include "common.h"
 
 void enable_keepalive(int sockfd) {
@@ -140,7 +141,8 @@ int black_hole_read(connection * con) {
             break;
         } else if (ret == 0) {//actually means the connection was closed
             close(con->sockfd);
-            break;
+            lost_con(con->sockfd);
+            return total;
         }
         total += ret;
     }
@@ -156,7 +158,8 @@ int echo(connection * con) {
             break;
         } else if (ret == 0) {//actually means the connection was closed
             close(con->sockfd);
-            break;
+            lost_con(con->sockfd);
+            return total;
         }
         con->bytes -= ret;
         total += ret;
@@ -168,7 +171,8 @@ int echo(connection * con) {
             break;
         } else if (ret == 0) {//actually means the connection was closed
             close(con->sockfd);
-            break;
+            lost_con(con->sockfd);
+            return total;
         }
         con->bytes = ret;
 

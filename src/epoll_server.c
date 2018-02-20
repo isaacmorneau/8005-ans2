@@ -12,6 +12,7 @@
 
 #include "wrapper.h"
 #include "common.h"
+#include "logging.h"
 #include "epoll_server.h"
 
 void epoll_server(const char * port) {
@@ -27,7 +28,6 @@ void epoll_server(const char * port) {
     connection * con;
 
     int scaleback = 0;
-    int total_clients = 0;
 
     //make and bind the socket
     sfd = make_bound(port);
@@ -57,8 +57,7 @@ void epoll_server(const char * port) {
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
                 // A socket got closed
-                --total_clients;
-                printf("Client lost, closing fd %d\n", ((connection*)events[i].data.ptr)->sockfd);
+                lost_con(((connection*)events[i].data.ptr)->sockfd);
                 close_connection(events[i].data.ptr);
                 continue;
             } else {
@@ -85,17 +84,12 @@ void epoll_server(const char * port) {
                                 }
                             }
 
-                            ensure(getnameinfo(&in_addr, in_len, hbuf, sizeof hbuf, sbuf, sizeof sbuf,
-                                        NI_NUMERICHOST | NI_NUMERICSERV) == 0);
-                            ++total_clients;
-                            printf("Accepted connection %d on descriptor %d "
-                                    "(host=%s, port=%s)\n", total_clients, infd, hbuf, sbuf);
-
                             // Make the incoming socket non-blocking and add it to the
                             // list of fds to monitor.
                             set_non_blocking(infd);
                             enable_keepalive(infd);
                             set_recv_window(infd);
+                            new_con(infd);
 
                             ensure(con = calloc(1, sizeof(connection)));
 
@@ -129,8 +123,7 @@ void epoll_server(const char * port) {
             for (i = 0; i < n; i++) {
                 if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
                     // A socket got closed
-                    --total_clients;
-                    printf("Client lost, closing fd %d\n", ((connection*)events[i].data.ptr)->sockfd);
+                    lost_con(((connection*)events[i].data.ptr)->sockfd);
                     close_connection(events[i].data.ptr);
                     continue;
                 } else {
