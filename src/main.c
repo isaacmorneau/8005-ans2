@@ -14,7 +14,7 @@
 #include "common.h"
 #include "wrapper.h"
 
-#define SOCKOPTS "csothp:a:i:r:"
+#define SOCKOPTS "csothp:a:r:"
 
 void print_help(void){
     printf("usage options:\n"
@@ -22,10 +22,9 @@ void print_help(void){
             "\t[s]erver - set the mode to server\n"
             "\tp[o]llerver - set the mode to poll\n"
             "\t[t]raditional erver - set the mode to traditional\n"
-            "\t[i]nitial - set the number of clients to start with\n"
-            "\t[r]ate - microsecond delay before adding new clients\n"
-            "\t[p]ort <1-65535>> - the port to connect to\n"
-            "\t[a]ddress <ip or url> - only used by client for connecting to a server\n"
+            "\t[r]ate <default 500ms> - milisecond delay before adding new clients\n"
+            "\t[p]ort <default 54321> - the port to connect to\n"
+            "\t[a]ddress <default localhost> - only used by client for connecting to a server\n"
             "\t[h]elp - this message\n");
 }
 
@@ -42,7 +41,7 @@ int main (int argc, char *argv[]) {
     char * port = "54321";
     char * address = 0;
 
-    int rate = 0;
+    int rate = 500;
 
     while (1) {
         int option_index = 0;
@@ -92,9 +91,6 @@ int main (int argc, char *argv[]) {
                     return 1;
                 }
                 server_mode = 3;
-                break;
-            case 'i':
-                initial = atoi(optarg);
                 break;
             case 'r':
                 rate = atoi(optarg);

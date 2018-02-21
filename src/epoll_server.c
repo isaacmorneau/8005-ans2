@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +31,12 @@ void * epoll_handler(void * pass_pos) {
     int pos = (int)pass_pos;
     int efd = epollfds[pos];
     struct epoll_event *events;
+    cpu_set_t cpuset;
+
+    CPU_ZERO(&cpuset);
+    CPU_SET(pos, &cpuset);
+
+    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
     // Buffer where events are returned
     events = calloc(MAXEVENTS, sizeof(struct epoll_event));
@@ -111,7 +118,7 @@ void epoll_server(const char * port) {
     event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
     ensure(epoll_ctl(efd, EPOLL_CTL_ADD, sfd, &event) != -1);
 
-    // Buffer where events are returned (no more that 64 at the same time)
+    // Buffer where events are returned
     events = calloc(MAXEVENTS, sizeof(event));
 
     //threads will handle the clients, the main thread will just add new ones
@@ -123,10 +130,8 @@ void epoll_server(const char * port) {
             if (events[i].events & EPOLLERR) {
                 perror("epoll_wait, listen error");
             } else if (events[i].events & EPOLLHUP) {
-                perror("epoll_wait, listen epollhup");
-                // A socket got closed
-                //lost_con(((connection*)events[i].data.ptr)->sockfd);
-                //close_connection(events[i].data.ptr);
+                lost_con(((connection*)events[i].data.ptr)->sockfd);
+                close_connection(events[i].data.ptr);
             } else { //EPOLLIN
                 while (1) {
                     struct sockaddr in_addr;
