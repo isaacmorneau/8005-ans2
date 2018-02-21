@@ -7,53 +7,38 @@
 #include <sys/epoll.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/sysinfo.h>
 #include <netdb.h>
-#include <omp.h>
+#include <pthread.h>
+#include <signal.h>
 
 #include "wrapper.h"
 #include "common.h"
 #include "logging.h"
 #include "epoll_server.h"
 
-void epoll_server(const char * port) {
-    int sfd;
+static pthread_cond_t * thread_cvs;
+static pthread_mutex_t * thread_mts;
+int * epollfds;
 
-    int epoll_primary_fd;
-    int epoll_fallback_fd;
+static volatile int running = 1;
+static void handler(int sig) {
+    running = 0;
+}
 
-    struct epoll_event event;
+void * epoll_handler(void * pass_pos) {
+    int pos = (int)pass_pos;
+    int efd = epollfds[pos];
     struct epoll_event *events;
-    struct epoll_event *events_fallback;
 
-    connection * con;
+    // Buffer where events are returned
+    events = calloc(MAXEVENTS, sizeof(struct epoll_event));
 
-    int scaleback = 0;
+    pthread_cond_wait(&thread_cvs[pos], &thread_mts[pos]);
 
-    //make and bind the socket
-    sfd = make_bound(port);
-    set_non_blocking(sfd);
-
-    ensure(listen(sfd, SOMAXCONN) != -1);
-
-    ensure((epoll_primary_fd = epoll_create1(0)) != -1);
-    ensure((epoll_fallback_fd = epoll_create1(0)) != -1);
-
-    con = (connection *)calloc(1, sizeof(connection));
-    init_connection(con, sfd);
-    event.data.ptr = con;
-
-    event.events = EPOLLIN | EPOLLOUT | EPOLLET | EPOLLEXCLUSIVE;
-    ensure(epoll_ctl(epoll_primary_fd, EPOLL_CTL_ADD, sfd, &event) != -1);
-
-    // Buffer where events are returned (no more that 64 at the same time)
-    events = calloc(MAXEVENTS, sizeof(event));
-    events_fallback = calloc(MAXEVENTS, sizeof(event));
-
-#pragma omp parallel
-    while (1) {
+    while (running) {
         int n, i;
-        //printf("current scale: %d\n",scaleback);
-        n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, scaleback);
+        n = epoll_wait(efd, events, MAXEVENTS, -1);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
                 // A socket got closed
@@ -62,98 +47,137 @@ void epoll_server(const char * port) {
                 continue;
             } else {
                 if((events[i].events & EPOLLIN)) {
-                    //puts("EPOLLIN");
-                    if (sfd == ((connection*)events[i].data.ptr)->sockfd) {
-                        // We have a notification on the listening socket, which
-                        // means one or more incoming connections.
-                        while (1) {
-                            struct sockaddr in_addr;
-                            socklen_t in_len;
-                            int infd;
-                            char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
-
-                            in_len = sizeof(in_addr);
-
-                            infd = accept(sfd, &in_addr, &in_len);
-                            if (infd == -1) {
-                                if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
-                                    break;
-                                } else {
-                                    perror("accept");
-                                    break;
-                                }
-                            }
-
-                            // Make the incoming socket non-blocking and add it to the
-                            // list of fds to monitor.
-                            set_non_blocking(infd);
-                            //enable_keepalive(infd);
-                            set_recv_window(infd);
-                            new_con(infd);
-
-                            ensure(con = calloc(1, sizeof(connection)));
-
-                            init_connection(con, infd);
-
-                            event.data.ptr = con;
-
-                            event.events = EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
-                            ensure(epoll_ctl(epoll_fallback_fd, EPOLL_CTL_ADD, infd, &event) != -1);
-
-                            event.events |= EPOLLET;
-                            ensure(epoll_ctl(epoll_primary_fd, EPOLL_CTL_ADD, infd, &event) != -1);
-
-                        }
-                        continue;
-                    } else {
-                        //regular incomming message echo it back
-                        echo((connection *)event.data.ptr);
-                    }
+                    //regular incomming message echo it back
+                    echo((connection *)events[i].data.ptr);
                 }
 
                 if((events[i].events & EPOLLOUT)) {
-                    //puts("EPOLLOUT");
                     //we are now notified that we can send the rest of the data
-                    echo_harder((connection *)event.data.ptr);
+                    //possible but unlikely, handle it anyway
+                    echo_harder((connection *)events[i].data.ptr);
                 }
             }
-        }
-        if (n == 0) { //timeout occured, fallback to level triggered just to be safe
-            n = epoll_wait(epoll_fallback_fd, events, MAXEVENTS, 0);
-            for (i = 0; i < n; i++) {
-                if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
-                    // A socket got closed
-                    lost_con(((connection*)events[i].data.ptr)->sockfd);
-                    close_connection(events[i].data.ptr);
-                    continue;
-                } else {
-                    if((events[i].events & EPOLLIN)) {
-                        //puts("EPOLLIN2");
-                        //regular incomming message echo it back
-                        echo((connection *)event.data.ptr);
-                    }
-
-                    if((events[i].events & EPOLLOUT)) {
-                        //puts("EPOLLOUT2");
-                        //we are now notified that we can send the rest of the data
-                        echo_harder((connection *)event.data.ptr);
-                    }
-                }
-            }
-            //if there was no event we are just waiting
-            //increase wait time to avoid doing a mega core pin
-            if (n == 0) {
-                scaleback = scaleback? scaleback * 2: 1;
-            } else {//event did happen and we recovered. return to edge triggered
-                //puts("recovered\n");
-                scaleback = 0;
-            }
-        } else {
-            scaleback = 0;
         }
     }
     free(events);
-    close(sfd);
-    close(epoll_primary_fd);
-    close(epoll_fallback_fd);
+
+    return 0;
 }
+
+void epoll_server(const char * port) {
+    int sfd;
+    int total_threads = get_nprocs();
+    epollfds = calloc(total_threads, sizeof(int));
+    thread_cvs = calloc(total_threads, sizeof(pthread_cond_t));
+    thread_mts = calloc(total_threads, sizeof(pthread_mutex_t));
+    int efd;
+    connection * con;
+    struct epoll_event event;
+    struct epoll_event *events;
+    int epoll_pos = 0;
+
+    //signal(SIGINT, handler);
+
+    //make the epolls for the threads
+    //then pass them to each of the threads
+    for (int i = 0; i < total_threads; ++i) {
+        ensure((epollfds[i] = epoll_create1(0)) != -1);
+        pthread_cond_init(&thread_cvs[i], NULL);
+        pthread_mutex_init(&thread_mts[i], NULL);
+
+        pthread_attr_t attr;
+        pthread_t tid;
+
+        ensure(pthread_attr_init(&attr) == 0);
+        ensure(pthread_create(&tid, &attr, &epoll_handler, (void *)i) == 0);
+        ensure(pthread_attr_destroy(&attr) == 0);
+        ensure(pthread_detach(tid) == 0);//be free!!
+        printf("thread %d on epoll fd %d\n", i, epollfds[i]);
+    }
+
+    //make and bind the socket
+    sfd = make_bound(port);
+    set_non_blocking(sfd);
+
+    ensure(listen(sfd, SOMAXCONN) != -1);
+
+    //listening epoll
+    ensure((efd = epoll_create1(0)) != -1);
+
+    con = (connection *)calloc(1, sizeof(connection));
+    init_connection(con, sfd);
+    event.data.ptr = con;
+
+    event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
+    ensure(epoll_ctl(efd, EPOLL_CTL_ADD, sfd, &event) != -1);
+
+    // Buffer where events are returned (no more that 64 at the same time)
+    events = calloc(MAXEVENTS, sizeof(event));
+
+    //threads will handle the clients, the main thread will just add new ones
+    while (running) {
+        int n, i;
+        //printf("current scale: %d\n",scaleback);
+        n = epoll_wait(efd, events, MAXEVENTS, -1);
+        for (i = 0; i < n; i++) {
+            if (events[i].events & EPOLLERR) {
+                perror("epoll_wait, listen error");
+            } else if (events[i].events & EPOLLHUP) {
+                perror("epoll_wait, listen epollhup");
+                // A socket got closed
+                //lost_con(((connection*)events[i].data.ptr)->sockfd);
+                //close_connection(events[i].data.ptr);
+            } else { //EPOLLIN
+                while (1) {
+                    struct sockaddr in_addr;
+                    socklen_t in_len;
+                    int infd;
+
+                    in_len = sizeof(in_addr);
+
+                    infd = accept(sfd, &in_addr, &in_len);
+                    if (infd == -1) {
+                        if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+                            break;
+                        } else {
+                            perror("accept");
+                            break;
+                        }
+                    }
+
+                    // Make the incoming socket non-blocking and add it to the
+                    // list of fds to monitor.
+                    set_non_blocking(infd);
+                    //enable_keepalive(infd);
+                    set_recv_window(infd);
+                    new_con(infd);
+
+                    ensure(con = calloc(1, sizeof(connection)));
+                    init_connection(con, infd);
+
+                    event.data.ptr = con;
+
+                    event.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
+                    //round robin client addition
+                    ensure(epoll_ctl(epollfds[epoll_pos % total_threads], EPOLL_CTL_ADD, infd, &event) != -1);
+                    if (epoll_pos < total_threads) {
+                        pthread_cond_signal(&thread_cvs[epoll_pos]);
+                    }
+                    ++epoll_pos;
+                }
+            }
+        }
+    }
+
+    //cleanup all fds and memory
+    for (int i = 0; i < total_threads; ++total_threads) {
+        close(epollfds[i]);
+    }
+    close(efd);
+    close(sfd);
+
+    free(epollfds);
+    free(events);
+    free(con);
+}
+
