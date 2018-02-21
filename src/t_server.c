@@ -38,11 +38,8 @@ void server(const char* port) {
 
         printf("connfd: %d\n", *connfd);
 
-        if(pthread_create(&threads[i], NULL, echo_t, (void*) connfd) != 0) {
-            puts("thread creation failed");
-            exit(1);
-        }
-        pthread_detach(threads[i]);
+        ensure((pthread_create(&threads[i], NULL, echo_t, (void*) connfd)) == 0);
+        ensure(pthread_detach(threads[i]) == 0);
     }
 }
 
