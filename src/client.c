@@ -43,6 +43,8 @@ void * client_handler(void * pass_pos) {
     // Buffer where events are returned
     events = calloc(MAXEVENTS, sizeof(struct epoll_event));
 
+    pthread_cond_wait(&thread_cvs[pos], &thread_mts[pos]);
+
     while (running) {
         int n, i;
         n = epoll_wait(efd, events, MAXEVENTS, -1);
