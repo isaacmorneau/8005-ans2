@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-void client(const char * address, const char * port, int initial, int rate);
+void client(const char * address, const char * port, int rate);
 
 #ifdef __cplusplus
 }

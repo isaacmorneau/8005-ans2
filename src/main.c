@@ -18,7 +18,6 @@ void print_help(void){
     printf("usage options:\n"
             "\t[c]lient - set the mode to client\n"
             "\t[s]erver - set the mode to server\n"
-            "\t[i]nitial - set the number of clients to start with\n"
             "\t[r]ate - microsecond delay before adding new clients\n"
             "\t[p]ort <1-65535>> - the port to connect to\n"
             "\t[a]ddress <ip or url> - only used by client for connecting to a server\n"
@@ -38,7 +37,6 @@ int main (int argc, char *argv[]) {
     char * port = "54321";
     char * address = 0;
 
-    int initial = 1;
     int rate = 0;
 
     while (1) {
@@ -48,7 +46,6 @@ int main (int argc, char *argv[]) {
             {"client",  no_argument,       0, 'c' },
             {"server",  no_argument,       0, 's' },
             {"help",    no_argument,       0, 'h' },
-            {"initial", required_argument, 0, 'i' },
             {"rate",    required_argument, 0, 'r' },
             {"port",    required_argument, 0, 'p' },
             {"address", required_argument, 0, 'a' },
@@ -75,9 +72,6 @@ int main (int argc, char *argv[]) {
                 }
                 server_mode = 1;
                 break;
-            case 'i':
-                initial = atoi(optarg);
-                break;
             case 'r':
                 rate = atoi(optarg);
                 break;
@@ -100,7 +94,7 @@ int main (int argc, char *argv[]) {
     if (server_mode) {
         epoll_server(port);
     } else if (client_mode) {
-        client(address, port, initial, rate);
+        client(address, port, rate);
     } else {
         printf("Mode not specified, exiting\n");
         return 1;

@@ -24,11 +24,10 @@ static void handler(int sig) {
 
 void * epoll_handler(void * efd_ptr) {
     int efd = *((int *)efd_ptr);
-    struct epoll_event event;
     struct epoll_event *events;
 
     // Buffer where events are returned (no more that 64 at the same time)
-    events = calloc(MAXEVENTS, sizeof(event));
+    events = calloc(MAXEVENTS, sizeof(struct epoll_event));
 
     while (running) {
         int n, i;
@@ -43,13 +42,13 @@ void * epoll_handler(void * efd_ptr) {
             } else {
                 if((events[i].events & EPOLLIN)) {
                     //regular incomming message echo it back
-                    echo((connection *)event.data.ptr);
+                    echo((connection *)events[i].data.ptr);
                 }
 
                 if((events[i].events & EPOLLOUT)) {
                     //we are now notified that we can send the rest of the data
                     //possible but unlikely, handle it anyway
-                    echo_harder((connection *)event.data.ptr);
+                    echo_harder((connection *)events[i].data.ptr);
                 }
             }
         }
@@ -67,6 +66,7 @@ void epoll_server(const char * port) {
     connection * con;
     struct epoll_event event;
     struct epoll_event *events;
+    int epoll_pos = 0;
 
     signal(SIGINT, handler);
 
@@ -101,7 +101,6 @@ void epoll_server(const char * port) {
     // Buffer where events are returned (no more that 64 at the same time)
     events = calloc(MAXEVENTS, sizeof(event));
 
-    int epoll_pos = 0;
     //threads will handle the clients, the main thread will just add new ones
     while (running) {
         int n, i;

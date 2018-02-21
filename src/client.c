@@ -9,89 +9,30 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
-#include <omp.h>
+#include <signal.h>
 
 #include "client.h"
 #include "common.h"
 #include "logging.h"
 #include "wrapper.h"
 
-const char ** gaddress;
-const char ** gport;
-
-int epoll_primary_fd;
-int epoll_fallback_fd;
-
-void add_client_con() {
-    static struct epoll_event event;
-    connection * con;
-
-    con = (connection *)malloc(sizeof(connection));
-
-    init_connection(con, make_connected(*gaddress, *gport));
-
-    set_non_blocking(con->sockfd);
-    //disable rate limiting and TODO check that keep alive stops after connection close
-    //enable_keepalive(con->sockfd);
-    set_recv_window(con->sockfd);
-    new_con(con->sockfd);
-
-    //cant add EPOLLRDHUP as EPOLLEXCLUSIVE would then fail
-    //instead check for a read of 0
-    event.data.ptr = con;
-
-    //we dont need to calloc the event its coppied.
-    event.events = EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
-    ensure(epoll_ctl(epoll_fallback_fd, EPOLL_CTL_ADD, con->sockfd, &event) != -1);
-
-    event.events |= EPOLLET;
-    ensure(epoll_ctl(epoll_primary_fd, EPOLL_CTL_ADD, con->sockfd, &event) != -1);
+static volatile int running = 1;
+static void handler(int sig) {
+    running = 0;
 }
 
-void * client_increase(void * rate_ptr) {
-    int rate = *((int*)rate_ptr);
-    while (1) {
-        usleep(rate);
-        add_client_con();
-    }
-}
-
-void client(const char * address,  const char * port, int initial, int rate) {
-    gaddress = &address;
-    gport = &port;
-    struct epoll_event event;
+void * client_handler(void * efd_ptr) {
+    int efd = *((int *)efd_ptr);
     struct epoll_event *events;
+    int bytes;
 
-    int scaleback = 0;
+    // Buffer where events are returned (no more that 64 at the same time)
+    events = calloc(MAXEVENTS, sizeof(struct epoll_event));
 
-    ensure((epoll_primary_fd = epoll_create1(0)) != -1);
-    ensure((epoll_fallback_fd = epoll_create1(0)) != -1);
-
-    //buffer where events are returned
-    events = calloc(MAXEVENTS, sizeof(event));
-
-//#pragma omp parallel for
-    for(int i = 0; i < initial; ++i) {
-        add_client_con();
-    }
-
-    //if the rate is zero dont bother with the threads
-    if (rate) {
-        pthread_attr_t attr;
-        pthread_t tid;
-
-        ensure(pthread_attr_init(&attr) == 0);
-        ensure(pthread_create(&tid, &attr, &client_increase, &rate) == 0);
-        ensure(pthread_attr_destroy(&attr) == 0);
-        ensure(pthread_detach(tid) == 0);
-    }
-
-#pragma omp parallel
-    for (;;) {
-        int n, i, bytes;
-
+    while (running) {
+        int n, i;
         //printf("current scale: %d\n",scaleback);
-        n = epoll_wait(epoll_primary_fd, events, MAXEVENTS, scaleback);
+        n = epoll_wait(efd, events, MAXEVENTS, -1);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
                 lost_con(((connection*)events[i].data.ptr)->sockfd);
@@ -109,39 +50,56 @@ void client(const char * address,  const char * port, int initial, int rate) {
                 }
             }
         }
-        if (n == 0) { //timeout occured, fallback to level triggered just to be safe
-            n = epoll_wait(epoll_fallback_fd, events, MAXEVENTS, 0);
-            for (i = 0; i < n; i++) {
-                if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
-                    lost_con(((connection*)events[i].data.ptr)->sockfd);
-                    //printf("Client lost, closing fd %d\n", ((connection*)events[i].data.ptr)->sockfd);
-                    close_connection(events[i].data.ptr);
-                    continue;
-                } else {
-                    if (events[i].events & EPOLLIN) {//data has been echoed back or remote has closed connection
-                        //puts("EPOLLIN2");
-                        bytes = black_hole_read((connection *)events[i].data.ptr);
-                    }
-
-                    if (events[i].events & EPOLLOUT) {//data can be written
-                        //puts("EPOLLOUT2");
-                        bytes = white_hole_write((connection *)events[i].data.ptr);
-                    }
-                }
-            }
-            //if there was no event we are just waiting
-            //increase wait time to avoid the cycles
-            if (n == 0) {
-                scaleback = scaleback ? scaleback * 2: 1;
-            } else {//event did happen and we recovered. return to edge triggered
-                //puts("recovered");
-                scaleback = 0;
-            }
-        } else {
-            scaleback = 0;
-        }
     }
-    free(events);
-    close(epoll_primary_fd);
-    close(epoll_fallback_fd);
+}
+
+void client(const char * address, const char * port, int rate) {
+    int total_threads = get_nprocs();
+    int * epollfds = calloc(total_threads, sizeof(int));
+    connection * con;
+    struct epoll_event event;
+    int epoll_pos = 0;
+
+
+    signal(SIGINT, handler);
+
+    //make the epolls for the threads
+    //then pass them to each of the threads
+    for (int i = 0; i < total_threads; ++total_threads) {
+        ensure((epollfds[i] = epoll_create1(0)) != -1);
+
+        pthread_attr_t attr;
+        pthread_t tid;
+
+        ensure(pthread_attr_init(&attr) == 0);
+        ensure(pthread_create(&tid, &attr, &client_handler, &epollfds[i]) == 0);
+        ensure(pthread_attr_destroy(&attr) == 0);
+        ensure(pthread_detach(tid) == 0);//be free!!
+    }
+
+    if (rate) {
+        while (running) {
+            usleep(rate);
+            con = (connection *)malloc(sizeof(connection));
+            init_connection(con, make_connected(address, port));
+
+            set_non_blocking(con->sockfd);
+            //disable rate limiting and TODO check that keep alive stops after connection close
+            //enable_keepalive(con->sockfd);
+            set_recv_window(con->sockfd);
+            new_con(con->sockfd);
+
+            //cant add EPOLLRDHUP as EPOLLEXCLUSIVE would then fail
+            //instead check for a read of 0
+            event.data.ptr = con;
+
+            //we dont need to calloc the event its coppied.
+            event.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
+            ensure(epoll_ctl(epollfds[epoll_pos], EPOLL_CTL_ADD, con->sockfd, &event) != -1);
+            //round robin client addition
+            epoll_pos = epoll_pos == total_threads ? 0 : epoll_pos + 1;
+        }
+    } else {
+        wait(0);
+    }
 }
