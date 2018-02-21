@@ -12,15 +12,15 @@
 #include "common.h"
 #include "wrapper.h"
 
-#define SOCKOPTS "cshp:a:i:r:"
+#define SOCKOPTS "cshp:a:r:"
 
 void print_help(void){
     printf("usage options:\n"
             "\t[c]lient - set the mode to client\n"
             "\t[s]erver - set the mode to server\n"
-            "\t[r]ate - microsecond delay before adding new clients\n"
-            "\t[p]ort <1-65535>> - the port to connect to\n"
-            "\t[a]ddress <ip or url> - only used by client for connecting to a server\n"
+            "\t[r]ate <default 500ms> - milisecond delay before adding new clients\n"
+            "\t[p]ort <default 54321> - the port to connect to\n"
+            "\t[a]ddress <default localhost> - only used by client for connecting to a server\n"
             "\t[h]elp - this message\n");
 }
 
@@ -37,7 +37,7 @@ int main (int argc, char *argv[]) {
     char * port = "54321";
     char * address = 0;
 
-    int rate = 0;
+    int rate = 500;
 
     while (1) {
         int option_index = 0;
