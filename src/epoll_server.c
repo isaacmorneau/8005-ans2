@@ -118,7 +118,7 @@ void epoll_server(const char * port) {
     event.events = EPOLLIN | EPOLLET | EPOLLEXCLUSIVE;
     ensure(epoll_ctl(efd, EPOLL_CTL_ADD, sfd, &event) != -1);
 
-    // Buffer where events are returned (no more that 64 at the same time)
+    // Buffer where events are returned
     events = calloc(MAXEVENTS, sizeof(event));
 
     //threads will handle the clients, the main thread will just add new ones

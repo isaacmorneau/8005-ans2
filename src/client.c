@@ -40,7 +40,7 @@ void * client_handler(void * pass_pos) {
 
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
-    // Buffer where events are returned (no more that 64 at the same time)
+    // Buffer where events are returned
     events = calloc(MAXEVENTS, sizeof(struct epoll_event));
 
     while (running) {
