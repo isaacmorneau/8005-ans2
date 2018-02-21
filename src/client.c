@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
@@ -32,6 +33,12 @@ void * client_handler(void * pass_pos) {
     int efd = epollfds[pos];
     struct epoll_event *events;
     int bytes;
+    cpu_set_t cpuset;
+
+    CPU_ZERO(&cpuset);
+    CPU_SET(pos, &cpuset);
+
+    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
     // Buffer where events are returned (no more that 64 at the same time)
     events = calloc(MAXEVENTS, sizeof(struct epoll_event));
