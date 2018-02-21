@@ -108,47 +108,44 @@ void epoll_server(const char * port) {
         n = epoll_wait(efd, events, MAXEVENTS, -1);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
+                perror("Unlikely listen error");
                 // A socket got closed
-                lost_con(((connection*)events[i].data.ptr)->sockfd);
-                close_connection(events[i].data.ptr);
+                //lost_con(((connection*)events[i].data.ptr)->sockfd);
+                //close_connection(events[i].data.ptr);
             } else { //EPOLLIN
-                if (sfd == ((connection*)events[i].data.ptr)->sockfd) {
-                    // We have a notification on the listening socket, which
-                    // means one or more incoming connections.
-                    while (1) {
-                        struct sockaddr in_addr;
-                        socklen_t in_len;
-                        int infd;
+                while (1) {
+                    struct sockaddr in_addr;
+                    socklen_t in_len;
+                    int infd;
 
-                        in_len = sizeof(in_addr);
+                    in_len = sizeof(in_addr);
 
-                        infd = accept(sfd, &in_addr, &in_len);
-                        if (infd == -1) {
-                            if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
-                                break;
-                            } else {
-                                perror("accept");
-                                break;
-                            }
+                    infd = accept(sfd, &in_addr, &in_len);
+                    if (infd == -1) {
+                        if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+                            break;
+                        } else {
+                            perror("accept");
+                            break;
                         }
-
-                        // Make the incoming socket non-blocking and add it to the
-                        // list of fds to monitor.
-                        set_non_blocking(infd);
-                        //enable_keepalive(infd);
-                        set_recv_window(infd);
-                        new_con(infd);
-
-                        ensure(con = calloc(1, sizeof(connection)));
-                        init_connection(con, infd);
-
-                        event.data.ptr = con;
-
-                        event.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
-                        ensure(epoll_ctl(epollfds[epoll_pos], EPOLL_CTL_ADD, infd, &event) != -1);
-                        //round robin client addition
-                        epoll_pos = epoll_pos == total_threads ? 0 : epoll_pos + 1;
                     }
+
+                    // Make the incoming socket non-blocking and add it to the
+                    // list of fds to monitor.
+                    set_non_blocking(infd);
+                    //enable_keepalive(infd);
+                    set_recv_window(infd);
+                    new_con(infd);
+
+                    ensure(con = calloc(1, sizeof(connection)));
+                    init_connection(con, infd);
+
+                    event.data.ptr = con;
+
+                    event.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
+                    ensure(epoll_ctl(epollfds[epoll_pos], EPOLL_CTL_ADD, infd, &event) != -1);
+                    //round robin client addition
+                    epoll_pos = epoll_pos == total_threads ? 0 : epoll_pos + 1;
                 }
             }
         }
