@@ -9,7 +9,9 @@ extern "C" {
 #include <stdlib.h>
 #include <errno.h>
 
-#define TCP_WINDOW_CAP 4096
+//page size
+//#define TCP_WINDOW_CAP 4096
+#define TCP_WINDOW_CAP 1024
 
 #ifdef NDEBUG
 #define ensure(expr) (expr)

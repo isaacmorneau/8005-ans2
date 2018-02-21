@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include "common.h"
-#define MAXEVENTS 64
+#define MAXEVENTS 256
 
 #ifdef __cplusplus
 extern "C" {
