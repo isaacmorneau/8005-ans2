@@ -99,6 +99,8 @@ void epoll_server(const char * port) {
     sfd = make_bound(port);
     set_non_blocking(sfd);
 
+    ensure(listen(sfd, SOMAXCONN) != -1);
+
     //listening epoll
     ensure((efd = epoll_create1(0)) != -1);
 
@@ -118,8 +120,10 @@ void epoll_server(const char * port) {
         //printf("current scale: %d\n",scaleback);
         n = epoll_wait(efd, events, MAXEVENTS, -1);
         for (i = 0; i < n; i++) {
-            if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
-                perror("Unlikely listen error");
+            if (events[i].events & EPOLLERR) {
+                perror("epoll_wait, listen error");
+            } else if (events[i].events & EPOLLHUP) {
+                perror("epoll_wait, listen epollhup");
                 // A socket got closed
                 //lost_con(((connection*)events[i].data.ptr)->sockfd);
                 //close_connection(events[i].data.ptr);
