@@ -42,7 +42,6 @@ int main (int argc, char *argv[]) {
     char * port = "54321";
     char * address = 0;
 
-    int initial = 1;
     int rate = 0;
 
     while (1) {
@@ -54,7 +53,6 @@ int main (int argc, char *argv[]) {
             {"poll"  ,  no_argument,       0, 'o' },
             {"traditional",  no_argument,       0, 't' },
             {"help",    no_argument,       0, 'h' },
-            {"initial", required_argument, 0, 'i' },
             {"rate",    required_argument, 0, 'r' },
             {"port",    required_argument, 0, 'p' },
             {"address", required_argument, 0, 'a' },
@@ -132,7 +130,7 @@ int main (int argc, char *argv[]) {
                 return 0;
         }
     } else if (client_mode) {
-        client(address, port, initial, rate);
+        client(address, port, rate);
     } else {
         printf("Mode not specified, exiting\n");
         return 1;
