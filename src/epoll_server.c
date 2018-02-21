@@ -72,7 +72,7 @@ void epoll_server(const char * port) {
 
     //make the epolls for the threads
     //then pass them to each of the threads
-    for (int i = 0; i < total_threads; ++total_threads) {
+    for (int i = 0; i < total_threads; ++i) {
         ensure((epollfds[i] = epoll_create1(0)) != -1);
 
         pthread_attr_t attr;

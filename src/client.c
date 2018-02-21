@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include "client.h"
 #include "common.h"
@@ -65,7 +66,7 @@ void client(const char * address, const char * port, int rate) {
 
     //make the epolls for the threads
     //then pass them to each of the threads
-    for (int i = 0; i < total_threads; ++total_threads) {
+    for (int i = 0; i < total_threads; ++i) {
         ensure((epollfds[i] = epoll_create1(0)) != -1);
 
         pthread_attr_t attr;
