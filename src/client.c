@@ -108,9 +108,12 @@ void client(const char * address, const char * port, int rate) {
 
             //we dont need to calloc the event its coppied.
             event.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
-            ensure(epoll_ctl(epollfds[epoll_pos], EPOLL_CTL_ADD, con->sockfd, &event) != -1);
             //round robin client addition
-            epoll_pos = epoll_pos == total_threads ? 0 : epoll_pos + 1;
+            ensure(epoll_ctl(epollfds[epoll_pos % total_threads], EPOLL_CTL_ADD, con->sockfd, &event) != -1);
+            if (epoll_pos < total_threads) {
+                pthread_cond_signal(&thread_cvs[epoll_pos]);
+            }
+            ++epoll_pos;
         }
     }
 }
