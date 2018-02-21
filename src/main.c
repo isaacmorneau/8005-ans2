@@ -126,7 +126,7 @@ int main (int argc, char *argv[]) {
                 poll_server(port);
                 break;
             case 3:
-                server();
+                server(port);
                 break;
             default:
                 return 0;
