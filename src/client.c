@@ -1,6 +1,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/epoll.h>
+#include <sys/sysinfo.h>
 #include <netdb.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -61,8 +62,7 @@ void client(const char * address, const char * port, int rate) {
     struct epoll_event event;
     int epoll_pos = 0;
 
-
-    signal(SIGINT, handler);
+    //signal(SIGINT, handler);
 
     //make the epolls for the threads
     //then pass them to each of the threads

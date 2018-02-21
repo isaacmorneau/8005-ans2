@@ -68,7 +68,7 @@ void epoll_server(const char * port) {
     struct epoll_event *events;
     int epoll_pos = 0;
 
-    signal(SIGINT, handler);
+    //signal(SIGINT, handler);
 
     //make the epolls for the threads
     //then pass them to each of the threads
