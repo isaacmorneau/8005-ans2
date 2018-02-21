@@ -18,13 +18,18 @@
 #include "logging.h"
 #include "wrapper.h"
 
+static pthread_cond_t * thread_cvs;
+static pthread_mutex_t * thread_mts;
+int * epollfds;
+
 static volatile int running = 1;
 static void handler(int sig) {
     running = 0;
 }
 
-void * client_handler(void * efd_ptr) {
-    int efd = *((int *)efd_ptr);
+void * client_handler(void * pass_pos) {
+    int pos = (int)pass_pos;
+    int efd = epollfds[pos];
     struct epoll_event *events;
     int bytes;
 
@@ -33,7 +38,6 @@ void * client_handler(void * efd_ptr) {
 
     while (running) {
         int n, i;
-        //printf("current scale: %d\n",scaleback);
         n = epoll_wait(efd, events, MAXEVENTS, -1);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
@@ -53,11 +57,16 @@ void * client_handler(void * efd_ptr) {
             }
         }
     }
+    free(events);
+
+    return 0;
 }
 
 void client(const char * address, const char * port, int rate) {
     int total_threads = get_nprocs();
-    int * epollfds = calloc(total_threads, sizeof(int));
+    epollfds = calloc(total_threads, sizeof(int));
+    thread_cvs = calloc(total_threads, sizeof(pthread_cond_t));
+    thread_mts = calloc(total_threads, sizeof(pthread_mutex_t));
     connection * con;
     struct epoll_event event;
     int epoll_pos = 0;
@@ -68,14 +77,17 @@ void client(const char * address, const char * port, int rate) {
     //then pass them to each of the threads
     for (int i = 0; i < total_threads; ++i) {
         ensure((epollfds[i] = epoll_create1(0)) != -1);
+        pthread_cond_init(&thread_cvs[i], NULL);
+        pthread_mutex_init(&thread_mts[i], NULL);
 
         pthread_attr_t attr;
         pthread_t tid;
 
         ensure(pthread_attr_init(&attr) == 0);
-        ensure(pthread_create(&tid, &attr, &client_handler, &epollfds[i]) == 0);
+        ensure(pthread_create(&tid, &attr, &client_handler, (void*)i) == 0);
         ensure(pthread_attr_destroy(&attr) == 0);
         ensure(pthread_detach(tid) == 0);//be free!!
+        printf("thread %d on epoll fd %d\n", i, epollfds[i]);
     }
 
     if (rate) {
@@ -100,7 +112,5 @@ void client(const char * address, const char * port, int rate) {
             //round robin client addition
             epoll_pos = epoll_pos == total_threads ? 0 : epoll_pos + 1;
         }
-    } else {
-        wait(0);
     }
 }

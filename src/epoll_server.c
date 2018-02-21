@@ -17,21 +17,27 @@
 #include "logging.h"
 #include "epoll_server.h"
 
+static pthread_cond_t * thread_cvs;
+static pthread_mutex_t * thread_mts;
+int * epollfds;
+
 static volatile int running = 1;
 static void handler(int sig) {
     running = 0;
 }
 
-void * epoll_handler(void * efd_ptr) {
-    int efd = *((int *)efd_ptr);
+void * epoll_handler(void * pass_pos) {
+    int pos = (int)pass_pos;
+    int efd = epollfds[pos];
     struct epoll_event *events;
 
-    // Buffer where events are returned (no more that 64 at the same time)
+    // Buffer where events are returned
     events = calloc(MAXEVENTS, sizeof(struct epoll_event));
+
+    pthread_cond_wait(&thread_cvs[pos], &thread_mts[pos]);
 
     while (running) {
         int n, i;
-        //printf("current scale: %d\n",scaleback);
         n = epoll_wait(efd, events, MAXEVENTS, -1);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
@@ -61,7 +67,9 @@ void * epoll_handler(void * efd_ptr) {
 void epoll_server(const char * port) {
     int sfd;
     int total_threads = get_nprocs();
-    int * epollfds = calloc(total_threads, sizeof(int));
+    epollfds = calloc(total_threads, sizeof(int));
+    thread_cvs = calloc(total_threads, sizeof(pthread_cond_t));
+    thread_mts = calloc(total_threads, sizeof(pthread_mutex_t));
     int efd;
     connection * con;
     struct epoll_event event;
@@ -74,14 +82,17 @@ void epoll_server(const char * port) {
     //then pass them to each of the threads
     for (int i = 0; i < total_threads; ++i) {
         ensure((epollfds[i] = epoll_create1(0)) != -1);
+        pthread_cond_init(&thread_cvs[i], NULL);
+        pthread_mutex_init(&thread_mts[i], NULL);
 
         pthread_attr_t attr;
         pthread_t tid;
 
         ensure(pthread_attr_init(&attr) == 0);
-        ensure(pthread_create(&tid, &attr, &epoll_handler, &epollfds[i]) == 0);
+        ensure(pthread_create(&tid, &attr, &epoll_handler, (void *)i) == 0);
         ensure(pthread_attr_destroy(&attr) == 0);
         ensure(pthread_detach(tid) == 0);//be free!!
+        printf("thread %d on epoll fd %d\n", i, epollfds[i]);
     }
 
     //make and bind the socket
@@ -143,9 +154,12 @@ void epoll_server(const char * port) {
                     event.data.ptr = con;
 
                     event.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
-                    ensure(epoll_ctl(epollfds[epoll_pos], EPOLL_CTL_ADD, infd, &event) != -1);
                     //round robin client addition
-                    epoll_pos = epoll_pos == total_threads ? 0 : epoll_pos + 1;
+                    ensure(epoll_ctl(epollfds[epoll_pos % total_threads], EPOLL_CTL_ADD, infd, &event) != -1);
+                    if (epoll_pos < total_threads) {
+                        pthread_cond_signal(&thread_cvs[epoll_pos]);
+                    }
+                    ++epoll_pos;
                 }
             }
         }
