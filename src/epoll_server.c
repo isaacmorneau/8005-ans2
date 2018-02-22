@@ -163,7 +163,7 @@ void epoll_server(const char * port, bool max) {
                     event.data.ptr = con;
 
                     //round robin client addition
-                    event.events = EPOLLET | EPOLLEXCLUSIVE | ((EPOLLIN | EPOLLOUT) & (EPOLLM|!max||epoll_pos<total_threads));
+                    event.events = EPOLLET | EPOLLEXCLUSIVE | (!max||epoll_pos<total_threads?EPOLLIN | EPOLLOUT:0);
                     ensure(epoll_ctl(epollfds[epoll_pos % total_threads], EPOLL_CTL_ADD, infd, &event) != -1);
                     if (epoll_pos < total_threads) {
                         pthread_cond_signal(&thread_cvs[epoll_pos]);
