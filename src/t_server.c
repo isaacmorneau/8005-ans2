@@ -1,4 +1,5 @@
 #include "socketwrappers.h"
+#include "logging.h"
 #include "wrapper.h"
 #include "common.h"
 #include "limits.h"
@@ -35,14 +36,12 @@ void server(const char* port) {
                 puts("accept error");
             }
         }
+    
+        set_recv_window(*connfd);
+        new_con(*connfd);
 
-        printf("connfd: %d\n", *connfd);
-
-        if(pthread_create(&threads[i], NULL, echo_t, (void*) connfd) != 0) {
-            puts("thread creation failed");
-            exit(1);
-        }
-        pthread_detach(threads[i]);
+        ensure((pthread_create(&threads[i], NULL, echo_t, (void*) connfd)) == 0);
+        ensure(pthread_detach(threads[i]) == 0);
     }
 }
 
@@ -53,6 +52,9 @@ void *echo_t(void *fd) {
 
     while(1) {
         ensure_nonblock(n = recv(connfd, buf, BUFSIZE, 0) != -1);
+        if(n == 0) {
+            lost_con(connfd);
+        }
         ensure_nonblock(send(connfd, buf, n, 0) != -1);
     }
 }
