@@ -51,11 +51,16 @@ void *echo_t(void *fd) {
     char buf[BUFSIZE];
 
     while(1) {
-        ensure_nonblock(n = recv(connfd, buf, BUFSIZE, 0) != -1);
+        //ensure_nonblock(n = recv(connfd, buf, BUFSIZE, 0) != -1);
+        n = recv(connfd, buf, BUFSIZE, 0);
         if(n == 0) {
             lost_con(connfd);
+        } else if (n == -1) {
+            break;
         }
-        ensure_nonblock(send(connfd, buf, n, 0) != -1);
+        //ensure_nonblock(send(connfd, buf, n, 0) != -1);(
+        send(connfd, buf, n, 0);
+
     }
 }
 
