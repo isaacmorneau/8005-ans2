@@ -5,7 +5,7 @@
 #include "common.h"
 #define MAXEVENTS 256
 //epoll check mask
-#define EPOLLM 0x111
+#define EPOLLM 0x777
 
 #ifdef __cplusplus
 extern "C" {
