@@ -3,7 +3,9 @@
 
 #include <stdlib.h>
 #include "common.h"
-#define MAXEVENTS 1024
+#define MAXEVENTS 256
+//epoll check mask
+#define EPOLLM 0x111
 
 #ifdef __cplusplus
 extern "C" {
