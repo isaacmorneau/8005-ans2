@@ -71,7 +71,7 @@ void * client_handler(void * pass_pos) {
     return 0;
 }
 
-void client(const char * address, const char * port, int rate, bool max) {
+void client(const char * address, const char * port, int rate, bool m) {
     int total_threads = get_nprocs();
     epollfds = calloc(total_threads, sizeof(int));
     thread_cvs = calloc(total_threads, sizeof(pthread_cond_t));
@@ -116,7 +116,7 @@ void client(const char * address, const char * port, int rate, bool max) {
             event.data.ptr = con;
 
             //round robin client addition
-            event.events = EPOLLET | EPOLLEXCLUSIVE | (!max||epoll_pos<total_threads?EPOLLIN | EPOLLOUT:0);
+            event.events = EPOLLET | EPOLLEXCLUSIVE | (!m||epoll_pos<1024?EPOLLIN | EPOLLOUT:0);
             ensure(epoll_ctl(epollfds[epoll_pos % total_threads], EPOLL_CTL_ADD, con->sockfd, &event) != -1);
             if (epoll_pos < total_threads) {
                 pthread_cond_signal(&thread_cvs[epoll_pos]);
