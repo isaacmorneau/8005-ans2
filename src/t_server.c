@@ -29,6 +29,7 @@ void server(const char* port) {
         clilen = sizeof(cliaddr);
         connfd = malloc(sizeof(int));
         //      if((*connfd = Accept(listenfd, (struct sockaddr*) &cliaddr, &clilen)) < 0) {
+        printf("waiting for connection: %d\n");
         if((*connfd = accept(listenfd, (struct sockaddr*) &cliaddr, &clilen)) < 0) {
             if(errno == EINTR) {    //restart from interrupted system call
                 continue;
@@ -42,6 +43,7 @@ void server(const char* port) {
 
         ensure((pthread_create(&threads[i], NULL, echo_t, (void*) connfd)) == 0);
         ensure(pthread_detach(threads[i]) == 0);
+        printf("created thread: %d\n", i);
     }
 }
 
@@ -50,17 +52,17 @@ void *echo_t(void *fd) {
     int connfd = *((int*)fd);
     char buf[BUFSIZE];
 
+    printf("connfd: %d\n", connfd);
+    
     while(1) {
-        //ensure_nonblock(n = recv(connfd, buf, BUFSIZE, 0) != -1);
-        n = recv(connfd, buf, BUFSIZE, 0);
+        ensure(n = recv(connfd, buf, BUFSIZE, 0) != -1);
+        printf("echo: %s\n", buf);
         if(n == 0) {
             lost_con(connfd);
         } else if (n == -1) {
             break;
         }
-        //ensure_nonblock(send(connfd, buf, n, 0) != -1);(
-        send(connfd, buf, n, 0);
-
+        ensure(send(connfd, buf, n, 0) != -1);
     }
 }
 
