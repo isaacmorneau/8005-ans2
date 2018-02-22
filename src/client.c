@@ -71,7 +71,7 @@ void * client_handler(void * pass_pos) {
     return 0;
 }
 
-void client(const char * address, const char * port, int rate) {
+void client(const char * address, const char * port, int rate, bool max) {
     int total_threads = get_nprocs();
     epollfds = calloc(total_threads, sizeof(int));
     thread_cvs = calloc(total_threads, sizeof(pthread_cond_t));
@@ -116,7 +116,11 @@ void client(const char * address, const char * port, int rate) {
             event.data.ptr = con;
 
             //we dont need to calloc the event its coppied.
-            event.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
+            if (max) { //ignore these events, just hold the descriptors
+                event.events = EPOLLET | EPOLLEXCLUSIVE;
+            } else {
+                event.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
+            }
             //round robin client addition
             ensure(epoll_ctl(epollfds[epoll_pos % total_threads], EPOLL_CTL_ADD, con->sockfd, &event) != -1);
             if (epoll_pos < total_threads) {

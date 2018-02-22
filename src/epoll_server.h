@@ -1,14 +1,7 @@
 #ifndef EPOLLSERVER_H
 #define EPOLLSERVER_H
+#include <stdbool.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-void epoll_server(const char * port);
-
-#ifdef __cplusplus
-}
-#endif
+void epoll_server(const char * port, bool max);
 
 #endif

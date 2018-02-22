@@ -14,18 +14,19 @@
 #include "common.h"
 #include "wrapper.h"
 
-#define SOCKOPTS "csothp:a:r:"
+#define SOCKOPTS "csothmp:a:r:"
 
 void print_help(void){
-    printf("usage options:\n"
+    puts("usage options:\n"
             "\t[c]lient - set the mode to client\n"
-            "\t[s]erver - set the mode to server\n"
+            "\t[s]erve2;42M2;42m2;37M2;37m62;38Mr - set the mode to server\n"
+            "\t[m]ax - set the mode to maximize\n"
             "\tp[o]llerver - set the mode to poll\n"
             "\t[t]raditional erver - set the mode to traditional\n"
             "\t[r]ate <default 500ms> - milisecond delay before adding new clients\n"
             "\t[p]ort <default 54321> - the port to connect to\n"
             "\t[a]ddress <default localhost> - only used by client for connecting to a server\n"
-            "\t[h]elp - this message\n");
+            "\t[h]elp - this message");
 }
 
 int main (int argc, char *argv[]) {
@@ -37,6 +38,7 @@ int main (int argc, char *argv[]) {
 
     int server_mode = 0;
     bool client_mode = 0;
+    bool max_mode = 0;
 
     char * port = "54321";
     char * address = 0;
@@ -92,6 +94,9 @@ int main (int argc, char *argv[]) {
                 }
                 server_mode = 3;
                 break;
+            case 'm':
+                max_mode = 1;
+                break;
             case 'r':
                 rate = atoi(optarg);
                 break;
@@ -114,7 +119,7 @@ int main (int argc, char *argv[]) {
     if (server_mode) {
         switch (server_mode) {
             case 1:
-                epoll_server(port);
+                epoll_server(port, max_mode);
                 break;
             case 2:
                 poll_server(port);
@@ -126,7 +131,7 @@ int main (int argc, char *argv[]) {
                 return 0;
         }
     } else if (client_mode) {
-        client(address, port, rate);
+        client(address, port, rate, max_mode);
     } else {
         printf("Mode not specified, exiting\n");
         return 1;

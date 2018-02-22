@@ -1,14 +1,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
+#include <stdbool.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-void client(const char * address, const char * port, int rate);
-
-#ifdef __cplusplus
-}
-#endif
+void client(const char * address, const char * port, int rate, bool max);
 
 #endif

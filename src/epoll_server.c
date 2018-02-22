@@ -71,7 +71,7 @@ void * epoll_handler(void * pass_pos) {
     return 0;
 }
 
-void epoll_server(const char * port) {
+void epoll_server(const char * port, bool max) {
     int sfd;
     int total_threads = get_nprocs();
     epollfds = calloc(total_threads, sizeof(int));
@@ -162,7 +162,11 @@ void epoll_server(const char * port) {
 
                     event.data.ptr = con;
 
-                    event.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
+                    if (max) { //ignore these events, just hold the descriptors
+                        event.events = EPOLLET | EPOLLEXCLUSIVE;
+                    } else {
+                        event.events = EPOLLET | EPOLLIN | EPOLLOUT | EPOLLEXCLUSIVE;
+                    }
                     //round robin client addition
                     ensure(epoll_ctl(epollfds[epoll_pos % total_threads], EPOLL_CTL_ADD, infd, &event) != -1);
                     if (epoll_pos < total_threads) {
