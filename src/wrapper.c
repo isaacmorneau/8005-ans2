@@ -123,7 +123,7 @@ static char whitehole[TCP_WINDOW_CAP];
 int white_hole_write(connection * con) {
     int total = 0, ret;
     while (1) {
-        ensure_nonblock((ret = send(con->sockfd, whitehole, TCP_WINDOW_CAP, 0)) != -1);
+        ensure_nonblock((ret = lsend(con->sockfd, whitehole, TCP_WINDOW_CAP, 0)) != -1);
         if (ret == -1) break;
         total += ret;
     }
