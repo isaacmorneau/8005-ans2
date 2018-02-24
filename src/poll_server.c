@@ -20,7 +20,6 @@ void poll_server(const char* port) {
     struct sockaddr_in cliaddr, servaddr;
     socklen_t clilen;
     char buf[BUFSIZE];
-    connection *con;
 
     listenfd = make_bound(port);
     ensure(listen(listenfd, LISTENQ) != -1);
@@ -71,7 +70,10 @@ void poll_server(const char* port) {
             }
         }
 
+//#pragma omp parallel
         for(i = 1; i <= maxi; i++) {
+            connection *con;
+
             if((sockfd = client[i].fd) < 0) {
                 continue;
             }
@@ -94,6 +96,7 @@ void poll_server(const char* port) {
                 }
 */
             }
+
             free(con);
         }
     }
