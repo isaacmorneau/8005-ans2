@@ -1,5 +1,4 @@
 #define _GNU_SOURCE
-#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -28,7 +27,7 @@ static void handler(int sig) {
 }
 
 void * epoll_handler(void * pass_pos) {
-    int pos = (int)pass_pos;
+    int pos = *((int*)pass_pos);
     int efd = epollfds[pos];
     struct epoll_event *events;
     cpu_set_t cpuset;
@@ -49,7 +48,6 @@ void * epoll_handler(void * pass_pos) {
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) {
                 // A socket got closed
-                lost_con(((connection*)events[i].data.ptr)->sockfd);
                 close_connection(events[i].data.ptr);
                 continue;
             } else {
@@ -67,6 +65,7 @@ void * epoll_handler(void * pass_pos) {
         }
     }
     free(events);
+    free(pass_pos);
 
     return 0;
 }
@@ -96,7 +95,9 @@ void epoll_server(const char * port, bool m) {
         pthread_t tid;
 
         ensure(pthread_attr_init(&attr) == 0);
-        ensure(pthread_create(&tid, &attr, &epoll_handler, (void *)i) == 0);
+        int * thread_num = malloc(sizeof(int));
+        *thread_num = i;
+        ensure(pthread_create(&tid, &attr, &epoll_handler, (void *)thread_num) == 0);
         ensure(pthread_attr_destroy(&attr) == 0);
         ensure(pthread_detach(tid) == 0);//be free!!
         printf("thread %d on epoll fd %d\n", i, epollfds[i]);
@@ -130,7 +131,6 @@ void epoll_server(const char * port, bool m) {
             if (events[i].events & EPOLLERR) {
                 perror("epoll_wait, listen error");
             } else if (events[i].events & EPOLLHUP) {
-                lost_con(((connection*)events[i].data.ptr)->sockfd);
                 close_connection(events[i].data.ptr);
             } else { //EPOLLIN
                 while (1) {
@@ -140,7 +140,7 @@ void epoll_server(const char * port, bool m) {
 
                     in_len = sizeof(in_addr);
 
-                    infd = accept(sfd, &in_addr, &in_len);
+                    infd = laccept(sfd, &in_addr, &in_len);
                     if (infd == -1) {
                         if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
                             break;
@@ -155,7 +155,6 @@ void epoll_server(const char * port, bool m) {
                     set_non_blocking(infd);
                     //enable_keepalive(infd);
                     set_recv_window(infd);
-                    new_con(infd);
 
                     ensure(con = calloc(1, sizeof(connection)));
                     init_connection(con, infd);

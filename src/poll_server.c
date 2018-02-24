@@ -44,7 +44,7 @@ void poll_server(const char* port) {
 
         if(client[0].revents & POLLRDNORM) {
             clilen = sizeof(cliaddr);
-            connfd = accept(listenfd, (struct sockaddr*) &cliaddr, &clilen);
+            connfd = laccept(listenfd, (struct sockaddr*) &cliaddr, &clilen);
             if(connfd == -1) {
                 if((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
                     break;
@@ -55,7 +55,6 @@ void poll_server(const char* port) {
             }
 
             set_recv_window(connfd);
-            new_con(connfd);
             for(i = 1; i < OPEN_MAX; i++) {
                 if(client[i].fd < 0) {
                     client[i].fd = connfd;  //save fd
@@ -79,11 +78,8 @@ void poll_server(const char* port) {
                 continue;
             }
             if(client[i].revents & (POLLRDNORM | POLLERR)) {
-                ensure_nonblock(n = recv(sockfd, buf, BUFSIZE, 0) != -1);
-                if(n == 0) {
-                    lost_con(connfd);
-                }
-                ensure_nonblock(send(sockfd, buf, n, 0) != -1);
+                ensure_nonblock(n = lrecv(sockfd, buf, BUFSIZE, 0) != -1);
+                ensure_nonblock(lsend(sockfd, buf, n, 0) != -1);
 
 /*
                 if((n = read(sockfd, buf, BUFSIZE)) < 0) {

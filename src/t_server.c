@@ -8,7 +8,7 @@
 #define SERV_PORT 8000
 #define LISTENQ 5
 #define BUFSIZE 1024
-#define MAX_THREADS USHRT_MAX 
+#define MAX_THREADS USHRT_MAX
 
 void* echo_t(void* connfd);
 
@@ -22,23 +22,22 @@ void server(const char* port) {
 
     listenfd = make_bound(port);
     Listen(listenfd, LISTENQ);  //change to higher number
-    
+
 
     //should call waitpid()
     for(int i = 0; i < MAX_THREADS; i++) {
         clilen = sizeof(cliaddr);
         connfd = malloc(sizeof(int));
         //      if((*connfd = Accept(listenfd, (struct sockaddr*) &cliaddr, &clilen)) < 0) {
-        if((*connfd = accept(listenfd, (struct sockaddr*) &cliaddr, &clilen)) < 0) {
+        if((*connfd = laccept(listenfd, (struct sockaddr*) &cliaddr, &clilen)) < 0) {
             if(errno == EINTR) {    //restart from interrupted system call
                 continue;
             } else {
                 puts("accept error");
             }
         }
-    
+
         set_recv_window(*connfd);
-        new_con(*connfd);
 
         ensure((pthread_create(&threads[i], NULL, echo_t, (void*) connfd)) == 0);
         ensure(pthread_detach(threads[i]) == 0);
@@ -51,17 +50,13 @@ void *echo_t(void *fd) {
     char buf[BUFSIZE];
 
     while(1) {
-        //ensure_nonblock(n = recv(connfd, buf, BUFSIZE, 0) != -1);
-        n = recv(connfd, buf, BUFSIZE, 0);
-        if(n == 0) {
-            lost_con(connfd);
-        } else if (n == -1) {
+        n = lrecv(connfd, buf, BUFSIZE, 0);
+        if (n == -1) {
             break;
         }
-        //ensure_nonblock(send(connfd, buf, n, 0) != -1);(
-        send(connfd, buf, n, 0);
-
+        lsend(connfd, buf, n, 0);
     }
+    return 0;
 }
 
 
