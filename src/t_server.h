@@ -4,6 +4,6 @@
 #include "socketwrappers.h"
 
 void server();
-void* echo_t(void* connfd);
+void* echo_t(void* con);
 
 #endif

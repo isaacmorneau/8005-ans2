@@ -10,62 +10,57 @@
 #define BUFSIZE 1024
 #define MAX_THREADS USHRT_MAX 
 
-void* echo_t(void* connfd);
+void *echo_t(void *new_connection) {
+    connection *con = ((connection *)new_connection);
+    int n;
+    
+    while(1) {
+        echo((connection *)con);
+    }
+}
 
 void server(const char* port) {
-    int listenfd, * connfd, n;
-    struct sockaddr_in cliaddr, servaddr;
+    int listenfd, * connfd, client;
+    struct sockaddr_in cliaddr;
     socklen_t clilen;
     char buf[BUFSIZE];
     pid_t childpid;
     pthread_t threads[MAX_THREADS];
+    connection *con;
 
     listenfd = make_bound(port);
-    Listen(listenfd, LISTENQ);  //change to higher number
-    
+    ensure(listen(listenfd, LISTENQ) != -1);    //TODO Make bigger after testing
 
-    //should call waitpid()
-    for(int i = 0; i < MAX_THREADS; i++) {
+    while(1){
         clilen = sizeof(cliaddr);
         connfd = malloc(sizeof(int));
-        //      if((*connfd = Accept(listenfd, (struct sockaddr*) &cliaddr, &clilen)) < 0) {
-        printf("waiting for connection: %d\n");
+
         if((*connfd = accept(listenfd, (struct sockaddr*) &cliaddr, &clilen)) < 0) {
-            if(errno == EINTR) {    //restart from interrupted system call
+            if(errno = EINTR) { //restart from interrupted system call
                 continue;
             } else {
-                puts("accept error");
+                perror("accept");
+                break;
             }
         }
-    
+           
+        client++;    //new client connection
+        set_non_blocking(*connfd);
         set_recv_window(*connfd);
         new_con(*connfd);
+        ensure(con = calloc(1, sizeof(connection)));
+        init_connection(con, *connfd);
+        ensure((pthread_create(&threads[client], NULL, echo_t, (void*) con)) == 0);
+        ensure(pthread_detach(threads[client]) == 0);
+        printf("created thread: %d\n", client);
 
-        ensure((pthread_create(&threads[i], NULL, echo_t, (void*) connfd)) == 0);
-        ensure(pthread_detach(threads[i]) == 0);
-        printf("created thread: %d\n", i);
-    }
-}
+        if(client == MAX_THREADS) {
+            printf("MAX_THREADS reached: %d\n", MAX_THREADS);
 
-void *echo_t(void *fd) {
-    int n;
-    int connfd = *((int*)fd);
-    char buf[BUFSIZE];
-
-    printf("connfd: %d\n", connfd);
-    
-    while(1) {
-        ensure(n = recv(connfd, buf, BUFSIZE, 0) != -1);
-        printf("echo: %s\n", buf);
-        if(n == 0) {
-            lost_con(connfd);
-        } else if (n == -1) {
-            break;
+            //wait until client closes connections
+            while(1){}  //uhhh maybe do something more intelligent here
         }
-        ensure(send(connfd, buf, n, 0) != -1);
     }
 }
-
-
 
 
