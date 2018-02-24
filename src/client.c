@@ -29,7 +29,7 @@ static void handler(int sig) {
 }
 
 void * client_handler(void * pass_pos) {
-    int pos = (int)pass_pos;
+    int pos = *((int*)pass_pos);
     int efd = epollfds[pos];
     struct epoll_event *events;
     int bytes;
@@ -50,7 +50,6 @@ void * client_handler(void * pass_pos) {
         n = epoll_wait(efd, events, MAXEVENTS, -1);
         for (i = 0; i < n; i++) {
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP)) { // error or unexpected close
-                lost_con(((connection*)events[i].data.ptr)->sockfd);
                 close_connection(events[i].data.ptr);
                 continue;
             } else {
@@ -67,7 +66,7 @@ void * client_handler(void * pass_pos) {
         }
     }
     free(events);
-
+    free(pass_pos);
     return 0;
 }
 
@@ -93,7 +92,9 @@ void client(const char * address, const char * port, int rate, bool m) {
         pthread_t tid;
 
         ensure(pthread_attr_init(&attr) == 0);
-        ensure(pthread_create(&tid, &attr, &client_handler, (void*)i) == 0);
+        int * thread_num = malloc(sizeof(int));
+        *thread_num = i;
+        ensure(pthread_create(&tid, &attr, &client_handler, (void*)thread_num) == 0);
         ensure(pthread_attr_destroy(&attr) == 0);
         ensure(pthread_detach(tid) == 0);//be free!!
         printf("thread %d on epoll fd %d\n", i, epollfds[i]);
@@ -109,7 +110,6 @@ void client(const char * address, const char * port, int rate, bool m) {
             //disable rate limiting and TODO check that keep alive stops after connection close
             //enable_keepalive(con->sockfd);
             set_recv_window(con->sockfd);
-            new_con(con->sockfd);
 
             //cant add EPOLLRDHUP as EPOLLEXCLUSIVE would then fail
             //instead check for a read of 0

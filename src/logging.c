@@ -41,6 +41,15 @@ int laccept(int socket, struct sockaddr *restrict address, socklen_t *restrict a
     return ret;
 }
 
+int lconnect(int socket, const struct sockaddr *address, socklen_t address_len) {
+    int ret;
+    ret = connect(socket, address, address_len);
+    if (ret != -1) {
+        fprintf(log_fd,"%d %d o",timestamp(), socket);
+    }
+    return ret;
+}
+
 ssize_t lsend(int socket, const void *buffer, size_t length, int flags) {
     ssize_t ret;
     ret = send(socket, buffer, length, flags);
@@ -50,13 +59,9 @@ ssize_t lsend(int socket, const void *buffer, size_t length, int flags) {
             case ECONNRESET://reset
                 fprintf(log_fd,"%d %d c",timestamp(), socket);
                 break;
-            case EINTR://interrupted
-            case EAGAIN://nothing more
             default:
                 break;
         }
-    } else if (ret == 0) {
-        fprintf(log_fd,"%d %d c",timestamp(), socket);
     } else {
         fprintf(log_fd,"%d %d s %ld",timestamp(), socket, ret);
     }
@@ -72,8 +77,6 @@ ssize_t lrecv(int socket, void *buffer, size_t length, int flags) {
             case ECONNRESET://reset
                 fprintf(log_fd,"%d %d c",timestamp(), socket);
                 break;
-            case EINTR://interrupted
-            case EAGAIN://nothing more
             default:
                 break;
         }

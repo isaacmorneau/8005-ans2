@@ -1,6 +1,5 @@
 #define _GNU_SOURCE
 #include <fcntl.h>
-#include <sys/uio.h>
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
@@ -9,7 +8,7 @@
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
-#include <sys/types.h>
+#include <sys/uio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -69,7 +68,7 @@ int make_connected(const char * address, const char * port) {
         if (sfd == -1)
             continue;
 
-        s = connect(sfd, rp->ai_addr, rp->ai_addrlen);
+        s = lconnect(sfd, rp->ai_addr, rp->ai_addrlen);
         if (s == 0) {
             break;
         }
@@ -136,12 +135,11 @@ int black_hole_read(connection * con) {
     int total = 0, ret;
     //spinlock on emptying the response
     while(1) {
-        ensure_nonblock((ret = recv(con->sockfd, con->buffer, TCP_WINDOW_CAP, 0)) != -1);
+        ensure_nonblock((ret = lrecv(con->sockfd, con->buffer, TCP_WINDOW_CAP, 0)) != -1);
         if (ret == -1) {
             break;
         } else if (ret == 0) {//actually means the connection was closed
             close(con->sockfd);
-            lost_con(con->sockfd);
             return total;
         }
         total += ret;
@@ -153,12 +151,11 @@ int black_hole_read(connection * con) {
 int echo(connection * con) {
     int total = 0, ret;
     while (con->bytes > 0) {//empty any existing data
-        ensure_nonblock((ret = send(con->sockfd, con->buffer + (TCP_WINDOW_CAP - con->bytes), con->bytes, 0)) != -1);
+        ensure_nonblock((ret = lsend(con->sockfd, con->buffer + (TCP_WINDOW_CAP - con->bytes), con->bytes, 0)) != -1);
         if (ret == -1) {
             break;
         } else if (ret == 0) {//actually means the connection was closed
             close(con->sockfd);
-            lost_con(con->sockfd);
             return total;
         }
         con->bytes -= ret;
@@ -166,19 +163,18 @@ int echo(connection * con) {
     }
     while (1) {
         //read new data
-        ensure_nonblock((ret = recv(con->sockfd, con->buffer, TCP_WINDOW_CAP, 0)) != -1);
+        ensure_nonblock((ret = lrecv(con->sockfd, con->buffer, TCP_WINDOW_CAP, 0)) != -1);
         if (ret == -1) {
             break;
         } else if (ret == 0) {//actually means the connection was closed
             close(con->sockfd);
-            lost_con(con->sockfd);
             return total;
         }
         con->bytes = ret;
 
         //echo the data back
         while (con->bytes > 0) {
-            ensure_nonblock((ret = send(con->sockfd, con->buffer + (TCP_WINDOW_CAP - con->bytes), con->bytes, 0)) != -1);
+            ensure_nonblock((ret = lsend(con->sockfd, con->buffer + (TCP_WINDOW_CAP - con->bytes), con->bytes, 0)) != -1);
             if (ret == -1) break;
             con->bytes -= ret;
             total += ret;
@@ -195,7 +191,7 @@ int echo(connection * con) {
 int echo_harder(connection * con) {
     int total = 0, ret;
     while (con->bytes > 0) {//empty any existing data
-        ensure_nonblock((ret = send(con->sockfd, con->buffer + (TCP_WINDOW_CAP - 1 - con->bytes), con->bytes, 0)) != -1);
+        ensure_nonblock((ret = lsend(con->sockfd, con->buffer + (TCP_WINDOW_CAP - 1 - con->bytes), con->bytes, 0)) != -1);
         if (ret == -1) break;
         con->bytes -= ret;
         total += ret;

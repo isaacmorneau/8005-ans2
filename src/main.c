@@ -13,6 +13,7 @@
 #include "epoll_server.h"
 #include "common.h"
 #include "wrapper.h"
+#include "logging.h"
 
 #define SOCKOPTS "csothmp:a:r:"
 
@@ -117,6 +118,7 @@ int main (int argc, char *argv[]) {
 
     set_fd_limit();
 
+    init_logging(0);
     if (server_mode) {
         switch (server_mode) {
             case 1:
@@ -133,9 +135,7 @@ int main (int argc, char *argv[]) {
         }
     } else if (client_mode) {
         client(address, port, rate, max_mode);
-    } else {
-        printf("Mode not specified, exiting\n");
-        return 1;
     }
+    close_logging();
     return 0;
 }
