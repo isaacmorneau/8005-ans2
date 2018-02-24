@@ -3,7 +3,7 @@
 #include "logging.h"
 #include "wrapper.h"
 #include "common.h"
-#include "socketwrappers.h"
+#include <netinet/ip.h>
 #include "poll.h"
 #include "limits.h"
 #include "omp.h"
