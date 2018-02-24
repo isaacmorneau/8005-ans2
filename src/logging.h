@@ -2,10 +2,9 @@
 #define LOGGING_H
 
 #include <sys/types.h>
+#include <sys/socket.h>
 
-void new_con(int fd);
-void lost_con(int fd);
-
+int laccept(int socket, struct sockaddr * address, socklen_t * address_len);
 ssize_t lsend(int socket, const void *buffer, size_t length, int flags);
 ssize_t lrecv(int socket, void *buffer, size_t length, int flags);
 

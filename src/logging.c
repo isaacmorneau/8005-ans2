@@ -3,6 +3,8 @@
 #include <stdatomic.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <sys/time.h>
+
 
 atomic_int total_clients = 0;
 
@@ -15,6 +17,7 @@ void init_logging(const char * path) {
         log_fd = fopen("logging", "wb");
     }
 }
+
 void close_logging() {
     if (log_fd) {
         fclose(log_fd);
@@ -22,12 +25,20 @@ void close_logging() {
     }
 }
 
-void new_con(int fd) {
-    printf("++tc:%d fd:%d\n", ++total_clients, fd);
+//returns microsecond timestamp
+unsigned int timestamp() {
+    struct timeval tv;
+    gettimeofday(&tv, 0);
+    return (1e-6*tv.tv_sec) + tv.tv_usec;
 }
 
-void lost_con(int fd) {
-    printf("--tc:%d fd:%d\n", --total_clients, fd);
+int laccept(int socket, struct sockaddr *restrict address, socklen_t *restrict address_len) {
+    int ret;
+    ret = accept(socket, address, address_len);
+    if (ret != -1) {
+        fprintf(log_fd,"%d %d o",timestamp(), ret);
+    }
+    return ret;
 }
 
 ssize_t lsend(int socket, const void *buffer, size_t length, int flags) {
@@ -37,7 +48,7 @@ ssize_t lsend(int socket, const void *buffer, size_t length, int flags) {
         switch (errno) {
             case EPIPE://closed
             case ECONNRESET://reset
-                //TODO connection closed
+                fprintf(log_fd,"%d %d c",timestamp(), socket);
                 break;
             case EINTR://interrupted
             case EAGAIN://nothing more
@@ -45,7 +56,9 @@ ssize_t lsend(int socket, const void *buffer, size_t length, int flags) {
                 break;
         }
     } else if (ret == 0) {
-        //TODO connection closed
+        fprintf(log_fd,"%d %d c",timestamp(), socket);
+    } else {
+        fprintf(log_fd,"%d %d s %ld",timestamp(), socket, ret);
     }
     return ret;
 }
@@ -57,7 +70,7 @@ ssize_t lrecv(int socket, void *buffer, size_t length, int flags) {
         switch (errno) {
             case EPIPE://closed
             case ECONNRESET://reset
-                //TODO connection closed
+                fprintf(log_fd,"%d %d c",timestamp(), socket);
                 break;
             case EINTR://interrupted
             case EAGAIN://nothing more
@@ -65,7 +78,9 @@ ssize_t lrecv(int socket, void *buffer, size_t length, int flags) {
                 break;
         }
     } else if (ret == 0) {
-        //TODO connection closed
+        fprintf(log_fd,"%d %d c",timestamp(), socket);
+    } else {
+        fprintf(log_fd,"%d %d r %ld",timestamp(), socket, ret);
     }
     return ret;
 }
