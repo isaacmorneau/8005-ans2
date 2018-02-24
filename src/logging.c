@@ -36,7 +36,7 @@ int laccept(int socket, struct sockaddr *restrict address, socklen_t *restrict a
     int ret;
     ret = accept(socket, address, address_len);
     if (ret != -1) {
-        fprintf(log_fd,"%d %d o",timestamp(), ret);
+        fprintf(log_fd,"%d %d o\n",timestamp(), ret);
     }
     return ret;
 }
@@ -45,7 +45,7 @@ int lconnect(int socket, const struct sockaddr *address, socklen_t address_len) 
     int ret;
     ret = connect(socket, address, address_len);
     if (ret != -1) {
-        fprintf(log_fd,"%d %d o",timestamp(), socket);
+        fprintf(log_fd,"%d %d o\n",timestamp(), socket);
     }
     return ret;
 }
@@ -57,13 +57,13 @@ ssize_t lsend(int socket, const void *buffer, size_t length, int flags) {
         switch (errno) {
             case EPIPE://closed
             case ECONNRESET://reset
-                fprintf(log_fd,"%d %d c",timestamp(), socket);
+                fprintf(log_fd,"%d %d c\n",timestamp(), socket);
                 break;
             default:
                 break;
         }
     } else {
-        fprintf(log_fd,"%d %d s %ld",timestamp(), socket, ret);
+        fprintf(log_fd,"%d %d s %d\n",timestamp(), socket, (int)ret);
     }
     return ret;
 }
@@ -75,15 +75,15 @@ ssize_t lrecv(int socket, void *buffer, size_t length, int flags) {
         switch (errno) {
             case EPIPE://closed
             case ECONNRESET://reset
-                fprintf(log_fd,"%d %d c",timestamp(), socket);
+                fprintf(log_fd,"%d %d c\n",timestamp(), socket);
                 break;
             default:
                 break;
         }
     } else if (ret == 0) {
-        fprintf(log_fd,"%d %d c",timestamp(), socket);
+        fprintf(log_fd,"%d %d c\n",timestamp(), socket);
     } else {
-        fprintf(log_fd,"%d %d r %ld",timestamp(), socket, ret);
+        fprintf(log_fd,"%d %d r %d\n",timestamp(), socket, (int)ret);
     }
     return ret;
 }
