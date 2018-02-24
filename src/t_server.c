@@ -13,10 +13,11 @@
 void *echo_t(void *new_connection) {
     connection *con = ((connection *)new_connection);
     int n;
-    
+
     while(1) {
         echo((connection *)con);
     }
+
 }
 
 void server(const char* port) {
@@ -43,7 +44,7 @@ void server(const char* port) {
                 break;
             }
         }
-           
+
         client++;    //new client connection
         set_non_blocking(*connfd);
         set_recv_window(*connfd);
