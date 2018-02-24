@@ -8,7 +8,7 @@
 #define SERV_PORT 8000
 #define LISTENQ 5
 #define BUFSIZE 1024
-#define MAX_THREADS USHRT_MAX 
+#define MAX_THREADS USHRT_MAX
 
 void *echo_t(void *new_connection) {
     connection *con = ((connection *)new_connection);
@@ -35,9 +35,9 @@ void server(const char* port) {
     while(1){
         clilen = sizeof(cliaddr);
         connfd = malloc(sizeof(int));
-
-        if((*connfd = accept(listenfd, (struct sockaddr*) &cliaddr, &clilen)) < 0) {
-            if(errno = EINTR) { //restart from interrupted system call
+        //      if((*connfd = Accept(listenfd, (struct sockaddr*) &cliaddr, &clilen)) < 0) {
+        if((*connfd = laccept(listenfd, (struct sockaddr*) &cliaddr, &clilen)) < 0) {
+            if(errno == EINTR) {    //restart from interrupted system call
                 continue;
             } else {
                 perror("accept");
@@ -48,7 +48,7 @@ void server(const char* port) {
         client++;    //new client connection
         set_non_blocking(*connfd);
         set_recv_window(*connfd);
-        new_con(*connfd);
+        ///new_con(*connfd);
         ensure(con = calloc(1, sizeof(connection)));
         init_connection(con, *connfd);
         ensure((pthread_create(&threads[client], NULL, echo_t, (void*) con)) == 0);
@@ -62,6 +62,7 @@ void server(const char* port) {
             while(1){}  //uhhh maybe do something more intelligent here
         }
     }
+    return;
 }
 
 
