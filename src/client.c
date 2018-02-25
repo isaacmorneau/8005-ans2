@@ -70,7 +70,7 @@ void * client_handler(void * pass_pos) {
     return 0;
 }
 
-void client(const char * address, const char * port, int rate, bool m) {
+void client(const char * address, const char * port, int rate, int limit, bool m) {
     int total_threads = get_nprocs();
     epollfds = calloc(total_threads, sizeof(int));
     thread_cvs = calloc(total_threads, sizeof(pthread_cond_t));
@@ -101,7 +101,7 @@ void client(const char * address, const char * port, int rate, bool m) {
     }
 
     if (rate) {
-        while (running) {
+        for(int i = 0; limit == -1 || i < limit; ++i) {
             usleep(rate);
             con = (connection *)malloc(sizeof(connection));
             init_connection(con, make_connected(address, port));
