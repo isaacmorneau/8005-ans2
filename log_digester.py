@@ -11,8 +11,8 @@ logfile = open(sys.argv[1], 'r')
 lines = logfile.read().splitlines()
 
 connections = {}
-send_through = collections.OrderedDict()
-recv_through = collections.OrderedDict()
+send_through = {}
+recv_through = {}
 
 current_line= 0
 total_lines = len(lines)
@@ -85,15 +85,18 @@ print('==>totals<==\nconnections: {}\nsent(bytes): {}\nrecv(bytes): {}'.format(t
 print('==>averages<==\ndelay(ms): {}\npackets sent: {}\ndata sent(bytes): {}\ndata recv(bytes): {}\n'.format(
     round(delay/total_conn), round(packets/total_conn), round(sent/total_conn),round(recv/total_conn)))
 
+
+stk = collections.OrderedDict(sorted(send_through.items(), key=lambda t: t[0]))
+rtk = collections.OrderedDict(sorted(recv_through.items(), key=lambda t: t[0]))
 plt.subplot(2, 1, 1)
-plt.plot(send_through.keys(), send_through.values())
+plt.plot(stk.keys(), stk.values())
 plt.xlabel('Time (ms)')
 plt.ylabel('Data (bytes)')
 plt.title('Average Sent Bytes')
 plt.grid(True)
 
 plt.subplot(2, 1, 2)
-plt.plot(recv_through.keys(), recv_through.values())
+plt.plot(rtk.keys(), rtk.values())
 plt.xlabel('Time (ms)')
 plt.ylabel('Data (bytes)')
 plt.title('Average Recv Bytes')
