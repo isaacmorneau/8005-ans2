@@ -54,11 +54,8 @@ void server(const char* port) {
         init_connection(con, *connfd);
         ensure((pthread_create(&threads[client], NULL, echo_t, (void*) con)) == 0);
         ensure(pthread_detach(threads[client]) == 0);
-        printf("created thread: %d\n", client);
 
         if(client == MAX_THREADS) {
-            printf("MAX_THREADS reached: %d\n", MAX_THREADS);
-
             //wait until client closes connections
             while(1){}  //uhhh maybe do something more intelligent here
         }

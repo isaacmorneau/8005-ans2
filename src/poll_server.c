@@ -1,25 +1,42 @@
+#define _GNU_SOURCE
+
 #include "poll_server.h"
 #include "epoll_server.h"
 #include "logging.h"
 #include "wrapper.h"
 #include "common.h"
 #include <netinet/ip.h>
-#include "poll.h"
-#include "limits.h"
-#include "omp.h"
-#include "pthread.h"
-#include "sys/sysinfo.h"
+#include <sched.h>
+#include <poll.h>
+#include <limits.h>
+#include <pthread.h>
+#include <sys/sysinfo.h>
 
 #define LISTENQ 5
 #define OPEN_MAX USHRT_MAX//1024    //TODO: change to get max from sysconf (Advanced p. 51)
 #define BUFSIZE 4096
 
+struct pass_poll {
+    int *thread_num;
+    struct pollfd *client;
+};
+
+//struct pollfd *client;//[OPEN_MAX];
 int maxi;
 
-void * poll_handler(void *pass_client) {
+void * poll_handler(void *pass_thread) {
     int nready;
     int sockfd;
-    struct pollfd *client = pass_client;
+    struct pass_poll *pass = (struct pass_poll*) pass_thread;
+    struct pollfd *client = pass->client;
+//    struct pollfd *client = pass_client;
+    int *thread_num = pass->thread_num;
+
+    cpu_set_t cpuset;
+
+    CPU_ZERO(&cpuset);
+    CPU_SET(*thread_num, &cpuset);
+    pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
     while(1) {
         nready = poll(client, maxi + 1, -1);
@@ -37,6 +54,10 @@ void * poll_handler(void *pass_client) {
 
                 if(client[i].revents & (POLLRDNORM | POLLERR)) {
                     echo((connection *) con);
+                } else if(client[i].revents & (POLLIN)) {
+                    echo((connection *) con);
+                } else if(client[i].revents & (POLLOUT)) {
+                    echo_harder((connection *) con);
                 }
 
                 free(con);
@@ -44,17 +65,20 @@ void * poll_handler(void *pass_client) {
             }
         }
     }
+
+    free(pass_thread);
+    free(client);
 }
 
 void poll_server(const char* port) {
-    int listenfd, i, n, nready, connfd, sockfd;
-    struct sockaddr_in cliaddr, servaddr;
+    int listenfd, i, nready, connfd, sockfd;
+    struct sockaddr_in cliaddr;
     socklen_t clilen;
-    char buf[BUFSIZE];
     //int total_threads = get_nprocs();
     int total_threads = 1;
     struct pollfd client[OPEN_MAX];
 
+//    client = malloc(OPEN_MAX*sizeof(struct pollfd));
     listenfd = make_bound(port);
     ensure(listen(listenfd, LISTENQ) != -1);
     //set_non_blocking(listenfd);
@@ -70,11 +94,17 @@ void poll_server(const char* port) {
     for(int i = 0; i < total_threads; i++) {
         pthread_attr_t attr;
         pthread_t tid;
+        struct pass_poll *pass = malloc(sizeof(struct pass_poll));
+        int *thread_num = malloc(sizeof(int));
+
+        *thread_num = i;
+        pass->thread_num = thread_num;
+        pass->client = client;
 
         ensure(pthread_attr_init(&attr) == 0);
-        ensure(pthread_create(&tid, &attr, &poll_handler, (void *)client) == 0);
+//        ensure(pthread_create(&tid, &attr, &poll_handler, (void *)client) == 0);
+        ensure(pthread_create(&tid, &attr, &poll_handler, (void *)pass) == 0);
         ensure(pthread_detach(tid) == 0);
-        printf("thread %d\n", i);
     }
 
 //#pragma omp parallel
@@ -105,7 +135,7 @@ void poll_server(const char* port) {
                 if(i == OPEN_MAX)
                     break;
 
-                client[i].events = POLLRDNORM;
+                client[i].events = POLLRDNORM | POLLIN;
                 if(i > maxi)
                     maxi = i;       //max index
                 if(--nready <= 0)
