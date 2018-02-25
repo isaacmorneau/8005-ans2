@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 #include <sys/epoll.h>
 #include <sys/sysinfo.h>
+#include <sys/wait.h>
 #include <netdb.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -23,10 +24,6 @@ static pthread_cond_t * thread_cvs;
 static pthread_mutex_t * thread_mts;
 int * epollfds;
 
-static volatile int running = 1;
-static void handler(int sig) {
-    running = 0;
-}
 
 void * client_handler(void * pass_pos) {
     int pos = *((int*)pass_pos);
@@ -45,7 +42,7 @@ void * client_handler(void * pass_pos) {
 
     pthread_cond_wait(&thread_cvs[pos], &thread_mts[pos]);
 
-    while (running) {
+    while (1) {
         int n, i;
         n = epoll_wait(efd, events, MAXEVENTS, -1);
         for (i = 0; i < n; i++) {
@@ -75,33 +72,53 @@ void client(const char * address, const char * port, int rate, int limit, bool m
     epollfds = calloc(total_threads, sizeof(int));
     thread_cvs = calloc(total_threads, sizeof(pthread_cond_t));
     thread_mts = calloc(total_threads, sizeof(pthread_mutex_t));
+    pthread_t * thread_fds = calloc(total_threads, sizeof(pthread_t));
     connection * con;
     struct epoll_event event;
     int epoll_pos = 0;
-
-    //signal(SIGINT, handler);
 
     //make the epolls for the threads
     //then pass them to each of the threads
     for (int i = 0; i < total_threads; ++i) {
         ensure((epollfds[i] = epoll_create1(0)) != -1);
-        pthread_cond_init(&thread_cvs[i], NULL);
-        pthread_mutex_init(&thread_mts[i], NULL);
+        pthread_cond_init(thread_cvs + i, 0);
+        pthread_mutex_init(thread_mts + i, 0);
 
         pthread_attr_t attr;
-        pthread_t tid;
 
         ensure(pthread_attr_init(&attr) == 0);
         int * thread_num = malloc(sizeof(int));
         *thread_num = i;
-        ensure(pthread_create(&tid, &attr, &client_handler, (void*)thread_num) == 0);
+        ensure(pthread_create(thread_fds+i, &attr, &client_handler, (void*)thread_num) == 0);
         ensure(pthread_attr_destroy(&attr) == 0);
-        ensure(pthread_detach(tid) == 0);//be free!!
+        //ensure(pthread_detach(tid) == 0);//be free!!
         printf("thread %d on epoll fd %d\n", i, epollfds[i]);
     }
 
-    if (rate) {
-        for(int i = 0; limit == -1 || i < limit; ++i) {
+    if (limit != -1) {
+        for(int i = 0; i < limit; ++i) {//spool up all the connections
+            con = (connection *)malloc(sizeof(connection));
+            init_connection(con, make_connected(address, port));
+
+            set_non_blocking(con->sockfd);
+            //disable rate limiting and TODO check that keep alive stops after connection close
+            //enable_keepalive(con->sockfd);
+            set_recv_window(con->sockfd);
+
+            //cant add EPOLLRDHUP as EPOLLEXCLUSIVE would then fail
+            //instead check for a read of 0
+            event.data.ptr = con;
+
+            //round robin client addition
+            event.events = EPOLLET | EPOLLEXCLUSIVE | EPOLLIN | EPOLLOUT;
+            ensure(epoll_ctl(epollfds[epoll_pos % total_threads], EPOLL_CTL_ADD, con->sockfd, &event) != -1);
+            ++epoll_pos;
+        }
+        for(int i = 0; i < total_threads; ++i) {//set the threads to go
+            pthread_cond_signal(thread_cvs + i);
+        }
+    } else { //add forever
+        while (1) {
             usleep(rate);
             con = (connection *)malloc(sizeof(connection));
             init_connection(con, make_connected(address, port));
@@ -123,5 +140,9 @@ void client(const char * address, const char * port, int rate, int limit, bool m
             }
             ++epoll_pos;
         }
+    }
+
+    for(int i = 0; i < total_threads; ++i) {
+        pthread_join(thread_fds[i],0);
     }
 }
