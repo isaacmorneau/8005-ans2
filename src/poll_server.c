@@ -7,10 +7,12 @@
 #include "limits.h"
 #include "omp.h"
 
-#define SERV_PORT 8000
 #define LISTENQ 5
 #define OPEN_MAX USHRT_MAX//1024    //TODO: change to get max from sysconf (Advanced p. 51)
-#define BUFSIZE 1024
+#define BUFSIZE 4096
+
+
+
 
 void poll_server(const char* port) {
     int listenfd, maxi, i, n, nready, connfd, sockfd;
@@ -18,18 +20,11 @@ void poll_server(const char* port) {
     struct sockaddr_in cliaddr, servaddr;
     socklen_t clilen;
     char buf[BUFSIZE];
+    connection *con;
 
-    //        listenfd = Socket(AF_INET, SOCK_STREAM, 0);
-    //SetReuse(listenfd);
     listenfd = make_bound(port);
-
-    /*        bzero(&servaddr, sizeof(servaddr));
-              servaddr.sin_family = AF_INET;
-              servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-              servaddr.sin_port = htons(SERV_PORT);
-              Bind(listenfd, &servaddr);
-              */
-    Listen(listenfd, LISTENQ);  //change to higher number
+    ensure(listen(listenfd, LISTENQ) != -1);
+//    set_non_blocking(listenfd); 
 
     client[0].fd = listenfd;
     client[0].events = POLLRDNORM;
@@ -38,7 +33,7 @@ void poll_server(const char* port) {
     }
     maxi = 0;
 
-#pragma omp parallel
+//#pragma omp parallel
     while(1) {
         nready = poll(client, maxi + 1, -1);    //for infinite timeout
 
@@ -52,34 +47,39 @@ void poll_server(const char* port) {
                     perror("accept");
                     break;
                 }
-            }
-
-            set_recv_window(connfd);
-            for(i = 1; i < OPEN_MAX; i++) {
-                if(client[i].fd < 0) {
-                    client[i].fd = connfd;  //save fd
-                    break;
+            } else {
+                set_non_blocking(connfd);
+                set_recv_window(connfd);
+                //new_con(connfd);
+                for(i = 1; i < OPEN_MAX; i++) {
+                    if(client[i].fd < 0) {
+                        client[i].fd = connfd;  //save fd
+                        break;
+                    }
                 }
+
+                if(i == OPEN_MAX)
+                    break;
+
+                client[i].events = POLLRDNORM;
+                if(i > maxi)
+                    maxi = i;       //max index
+                if(--nready <= 0)
+                    continue;       //no more fds
             }
-
-            if(i == OPEN_MAX)
-                break;
-
-            set_recv_window(connfd);
-            client[i].events = POLLRDNORM;
-            if(i > maxi)
-                maxi = i;       //max index
-            if(--nready <= 0)
-                continue;       //no more fds
         }
 
         for(i = 1; i <= maxi; i++) {
             if((sockfd = client[i].fd) < 0) {
                 continue;
             }
+
+            ensure(con = calloc(1, sizeof(connection)));
+            init_connection(con, sockfd);
+
             if(client[i].revents & (POLLRDNORM | POLLERR)) {
-                ensure_nonblock(n = lrecv(sockfd, buf, BUFSIZE, 0) != -1);
-                ensure_nonblock(lsend(sockfd, buf, n, 0) != -1);
+//                ensure_nonblock(n = lrecv(sockfd, buf, BUFSIZE, 0) != -1);
+//               ensure_nonblock(lsend(sockfd, buf, n, 0) != -1);
 
 /*
                 if((n = read(sockfd, buf, BUFSIZE)) < 0) {
@@ -101,10 +101,21 @@ void poll_server(const char* port) {
                     write(sockfd, buf, n);
                 }
 */
+                echo((connection *) con);
+/*
+                ensure_nonblock(n = recv(sockfd, buf, BUFSIZE, 0) != -1);
+                if(n == 0) {
+                    lost_con(connfd);
+                }
+                printf("echo: %d\n", n);
+                ensure_nonblock(n = send(sockfd, buf, n, 0) != -1);
+                printf("echo: %d\n", n);
                 if(--nready <= 0) {
                     break;  //no more fds
                 }
+*/
             }
+            free(con);
         }
     }
 }

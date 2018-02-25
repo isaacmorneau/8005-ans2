@@ -158,9 +158,13 @@ int echo(connection * con) {
             close(con->sockfd);
             return total;
         }
+
+        printf("emptying echo sent: %d\n", ret);
         con->bytes -= ret;
         total += ret;
     }
+
+
     while (1) {
         //read new data
         ensure_nonblock((ret = lrecv(con->sockfd, con->buffer, TCP_WINDOW_CAP, 0)) != -1);
@@ -171,6 +175,7 @@ int echo(connection * con) {
             return total;
         }
         con->bytes = ret;
+        printf("echo recv: %d\n", ret);
 
         //echo the data back
         while (con->bytes > 0) {
@@ -178,6 +183,7 @@ int echo(connection * con) {
             if (ret == -1) break;
             con->bytes -= ret;
             total += ret;
+            printf("echo sent: %d\n", ret);
         }
         if (con->bytes <= 0 || ret <= 0) {
             break;
