@@ -13,7 +13,6 @@
 
 void *echo_t(void *new_connection) {
     connection *con = ((connection *)new_connection);
-    int n;
 
     while(1) {
         echo((connection *)con);
@@ -22,18 +21,16 @@ void *echo_t(void *new_connection) {
 }
 
 void server(const char* port) {
-    int listenfd, * connfd, client;
+    int listenfd, * connfd, client = 0;
     struct sockaddr_in cliaddr;
     socklen_t clilen;
-    char buf[BUFSIZE];
-    pid_t childpid;
     pthread_t threads[MAX_THREADS];
     connection *con;
 
     listenfd = make_bound(port);
     ensure(listen(listenfd, LISTENQ) != -1);    //TODO Make bigger after testing
 
-    while(1){
+    while(client < MAX_THREADS){
         clilen = sizeof(cliaddr);
         connfd = malloc(sizeof(int));
         //      if((*connfd = Accept(listenfd, (struct sockaddr*) &cliaddr, &clilen)) < 0) {
@@ -53,13 +50,19 @@ void server(const char* port) {
         ensure(con = calloc(1, sizeof(connection)));
         init_connection(con, *connfd);
         ensure((pthread_create(&threads[client], NULL, echo_t, (void*) con)) == 0);
-        ensure(pthread_detach(threads[client]) == 0);
-
+//        ensure(pthread_detach(threads[client]) == 0);
+/*
         if(client == MAX_THREADS) {
             //wait until client closes connections
             while(1){}  //uhhh maybe do something more intelligent here
         }
+*/
     }
+
+    for(int i = 0; i < client; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
     return;
 }
 
