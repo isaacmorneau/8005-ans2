@@ -101,7 +101,7 @@ void client(const char * address, const char * port, int rate, int limit, bool m
     }
 
     if (rate) {
-        for(int i = 0; limit == -1 || i < limit; ++limit) {
+        for(int i = 0; limit == -1 || i < limit; ++i) {
             usleep(rate);
             con = (connection *)malloc(sizeof(connection));
             init_connection(con, make_connected(address, port));
