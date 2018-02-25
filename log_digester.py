@@ -27,6 +27,8 @@ for line in lines:
         print('{}% [{}/{}]'.format(complete, current_line, total_lines))
 
     fields = line.split(' ')
+    if len(fields) < 3 or fields[2] in ['r', 's'] and len(fields) < 4:
+        break
     ts = int(fields[0])
     fd = int(fields[1])
     #initialize new connections
