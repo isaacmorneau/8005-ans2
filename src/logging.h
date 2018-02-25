@@ -11,6 +11,6 @@ int lconnect(int socket, const struct sockaddr *address, socklen_t address_len);
 int laccept(int socket, struct sockaddr *address, socklen_t *address_len);
 
 void init_logging(const char * path);
-void close_logging();
+void close_logging(void);
 
 #endif

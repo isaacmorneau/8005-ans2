@@ -45,7 +45,7 @@ void server(const char* port) {
     connection *con;
 
     listenfd = make_bound(port);
-    ensure(listen(listenfd, LISTENQ) != -1);    //TODO Make bigger after testing
+    ensure(listen(listenfd, SOMAXCONN) != -1);
 
     while(client < MAX_THREADS){
         clilen = sizeof(cliaddr);

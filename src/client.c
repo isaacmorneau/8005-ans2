@@ -25,6 +25,14 @@ static pthread_mutex_t * thread_mts;
 int * epollfds;
 
 
+/*
+ * Author & Designer: Isaac Morneau
+ * Date: 26-2-2017
+ * Function: client_handler
+ * Parameters: void * pass_pos - the position of this thread in the thread pool
+ * Return: void * - ignored
+ * Notes: worker thread for reading and writing to established connections
+ */
 void * client_handler(void * pass_pos) {
     int pos = *((int*)pass_pos);
     int efd = epollfds[pos];
@@ -67,6 +75,19 @@ void * client_handler(void * pass_pos) {
     return 0;
 }
 
+/*
+ * Author & Designer: Isaac Morneau
+ * Date: 26-2-2017
+ * Function: client
+ * Parameters:
+ *      const char * address - the address or ip to connect to
+ *      const char * port - the port to connect with
+ *      int rate - the milisecond delay to add new connections with (miliseconds)
+ *      int limit - a maximum number of clients to connect or -1 for unlimited
+ *      bool m - enable maximum mode to focus on more clients instead of sustained connections
+ * Return: void
+ * Notes: spawns pool of worker threads and establishes connections
+ */
 void client(const char * address, const char * port, int rate, int limit, bool m) {
     int total_threads = get_nprocs();
     epollfds = calloc(total_threads, sizeof(int));
@@ -101,7 +122,6 @@ void client(const char * address, const char * port, int rate, int limit, bool m
             init_connection(con, make_connected(address, port));
 
             set_non_blocking(con->sockfd);
-            //disable rate limiting and TODO check that keep alive stops after connection close
             //enable_keepalive(con->sockfd);
             set_recv_window(con->sockfd);
 
@@ -124,7 +144,6 @@ void client(const char * address, const char * port, int rate, int limit, bool m
             init_connection(con, make_connected(address, port));
 
             set_non_blocking(con->sockfd);
-            //disable rate limiting and TODO check that keep alive stops after connection close
             //enable_keepalive(con->sockfd);
             set_recv_window(con->sockfd);
 

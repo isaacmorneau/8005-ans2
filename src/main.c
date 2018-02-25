@@ -17,7 +17,15 @@
 
 #define SOCKOPTS "csothml:p:a:r:"
 
-void print_help(void){
+/*
+ * Author & Designer: Isaac Morneau
+ * Date: 26-2-2017
+ * Function: print_help
+ * Parameters: void
+ * Return: void
+ * Notes: prints the useage information for the program
+ */
+static void print_help(void){
     puts("usage options:\n"
             "\t[c]lient - set the mode to client\n"
             "\t[s]erver - set the mode to server\n"
@@ -31,6 +39,16 @@ void print_help(void){
             "\t[h]elp - this message");
 }
 
+/*
+ * Author & Designer: Isaac Morneau
+ * Date: 26-2-2017
+ * Function: main
+ * Parameters:
+ *      int argc - the number of arguments
+ *      char * argv[] - the string arguments
+ * Return: int - the return code of the whole program
+ * Notes: parses usage options and selects the client or server type to run
+ */
 int main (int argc, char *argv[]) {
     if (argc == 1) {
         print_help();

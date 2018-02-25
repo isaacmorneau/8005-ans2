@@ -21,11 +21,14 @@ static pthread_cond_t * thread_cvs;
 static pthread_mutex_t * thread_mts;
 int * epollfds;
 
-static volatile int running = 1;
-static void handler(int sig) {
-    running = 0;
-}
-
+/*
+ * Author & Designer: Isaac Morneau
+ * Date: 26-2-2017
+ * Function: epoll_handler
+ * Parameters: void * pass_pos - the position of this thread in the thread pool
+ * Return: void * - ignored
+ * Notes: worker thread for reading and writing to established connections
+ */
 void * epoll_handler(void * pass_pos) {
     int pos = *((int*)pass_pos);
     int efd = epollfds[pos];
@@ -42,7 +45,7 @@ void * epoll_handler(void * pass_pos) {
 
     pthread_cond_wait(&thread_cvs[pos], &thread_mts[pos]);
 
-    while (running) {
+    while (1) {
         int n, i;
         n = epoll_wait(efd, events, MAXEVENTS, -1);
         for (i = 0; i < n; i++) {
@@ -70,6 +73,16 @@ void * epoll_handler(void * pass_pos) {
     return 0;
 }
 
+/*
+ * Author & Designer: Isaac Morneau
+ * Date: 26-2-2017
+ * Function: epoll_server
+ * Parameters:
+ *      const char * port - the port to listen on
+ *      bool m - enable maximum mode to focus on more clients instead of sustained connections
+ * Return: void
+ * Notes: listenss for connections and adds them to the worker pool
+ */
 void epoll_server(const char * port, bool m) {
     int sfd;
     int total_threads = get_nprocs();
@@ -81,8 +94,6 @@ void epoll_server(const char * port, bool m) {
     struct epoll_event event;
     struct epoll_event *events;
     int epoll_pos = 0;
-
-    //signal(SIGINT, handler);
 
     //make the epolls for the threads
     //then pass them to each of the threads
@@ -123,7 +134,7 @@ void epoll_server(const char * port, bool m) {
     events = calloc(MAXEVENTS, sizeof(event));
 
     //threads will handle the clients, the main thread will just add new ones
-    while (running) {
+    while (1) {
         int n, i;
         //printf("current scale: %d\n",scaleback);
         n = epoll_wait(efd, events, MAXEVENTS, -1);
