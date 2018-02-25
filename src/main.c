@@ -20,11 +20,12 @@
 void print_help(void){
     puts("usage options:\n"
             "\t[c]lient - set the mode to client\n"
-            "\t[s]erve2;42M2;42m2;37M2;37m62;38Mr - set the mode to server\n"
+            "\t[s]erver - set the mode to server\n"
             "\t[m]ax - set the mode to maximize\n"
             "\tp[o]llerver - set the mode to poll\n"
             "\t[t]raditional erver - set the mode to traditional\n"
             "\t[r]ate <default 500ms> - milisecond delay before adding new clients\n"
+            "\t[l]imit <default infinity> - the maximum number of clients to connect\n"
             "\t[p]ort <default 54321> - the port to connect to\n"
             "\t[a]ddress <default localhost> - only used by client for connecting to a server\n"
             "\t[h]elp - this message");
@@ -45,6 +46,7 @@ int main (int argc, char *argv[]) {
     char * address = 0;
 
     int rate = 500;
+    int limit = -1;
 
     while (1) {
         int option_index = 0;
@@ -57,6 +59,7 @@ int main (int argc, char *argv[]) {
             {"traditional", no_argument,       0, 't' },
             {"help",        no_argument,       0, 'h' },
             {"rate",        required_argument, 0, 'r' },
+            {"limit",       required_argument, 0, 'l' },
             {"port",        required_argument, 0, 'p' },
             {"address",     required_argument, 0, 'a' },
             {0,             0,                 0, 0   }
@@ -134,7 +137,7 @@ int main (int argc, char *argv[]) {
                 return 0;
         }
     } else if (client_mode) {
-        client(address, port, rate, max_mode);
+        client(address, port, rate, limit, max_mode);
     }
     close_logging();
     return 0;
