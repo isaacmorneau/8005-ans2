@@ -15,7 +15,7 @@
 #include "wrapper.h"
 #include "logging.h"
 
-#define SOCKOPTS "csothmp:a:r:"
+#define SOCKOPTS "csothml:p:a:r:"
 
 void print_help(void){
     puts("usage options:\n"
