@@ -24,7 +24,6 @@ static pthread_cond_t * thread_cvs;
 static pthread_mutex_t * thread_mts;
 int * epollfds;
 
-
 /*
  * Author & Designer: Isaac Morneau
  * Date: 26-2-2017
@@ -84,11 +83,12 @@ void * client_handler(void * pass_pos) {
  *      const char * port - the port to connect with
  *      int rate - the milisecond delay to add new connections with (miliseconds)
  *      int limit - a maximum number of clients to connect or -1 for unlimited
+ *      int runtime- the runtime before terminating the connection or 0 for unlimited (miliseconds)
  *      bool m - enable maximum mode to focus on more clients instead of sustained connections
  * Return: void
  * Notes: spawns pool of worker threads and establishes connections
  */
-void client(const char * address, const char * port, int rate, int limit, bool m) {
+void client(const char * address, const char * port, int rate, int limit, int runtime, bool m) {
     int total_threads = get_nprocs();
     epollfds = calloc(total_threads, sizeof(int));
     thread_cvs = calloc(total_threads, sizeof(pthread_cond_t));
@@ -137,9 +137,19 @@ void client(const char * address, const char * port, int rate, int limit, bool m
         for(int i = 0; i < total_threads; ++i) {//set the threads to go
             pthread_cond_signal(thread_cvs + i);
         }
+        if (runtime) {
+            struct timespec ts;
+            ts.tv_nsec = 0;
+            ts.tv_sec = runtime;
+            ensure(nanosleep(&ts, 0) != -1);
+            exit(0);
+        }
     } else { //add forever
+        struct timespec ts;
+        ts.tv_nsec = rate * 1000000;
+        ts.tv_sec = 0;
         while (1) {
-            usleep(rate);
+            ensure(nanosleep(&ts, 0) != -1);
             con = (connection *)malloc(sizeof(connection));
             init_connection(con, make_connected(address, port));
 

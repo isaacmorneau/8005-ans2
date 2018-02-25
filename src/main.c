@@ -15,7 +15,7 @@
 #include "wrapper.h"
 #include "logging.h"
 
-#define SOCKOPTS "csothml:p:a:r:"
+#define SOCKOPTS "csothmu:l:p:a:r:"
 
 /*
  * Author & Designer: Isaac Morneau
@@ -34,6 +34,7 @@ static void print_help(void){
             "\t[t]raditional erver - set the mode to traditional\n"
             "\t[r]ate <default 500ms> - milisecond delay before adding new clients\n"
             "\t[l]imit <default infinity> - the maximum number of clients to connect\n"
+            "\tr[u]ntime <default infinity> - second time to sustain after clients all connected\n"
             "\t[p]ort <default 54321> - the port to connect to\n"
             "\t[a]ddress <default localhost> - only used by client for connecting to a server\n"
             "\t[h]elp - this message");
@@ -65,6 +66,7 @@ int main (int argc, char *argv[]) {
 
     int rate = 500;
     int limit = -1;
+    int runtime = 0;
 
     while (1) {
         int option_index = 0;
@@ -77,6 +79,7 @@ int main (int argc, char *argv[]) {
             {"traditional", no_argument,       0, 't' },
             {"help",        no_argument,       0, 'h' },
             {"rate",        required_argument, 0, 'r' },
+            {"runtime",     required_argument, 0, 'u' },
             {"limit",       required_argument, 0, 'l' },
             {"port",        required_argument, 0, 'p' },
             {"address",     required_argument, 0, 'a' },
@@ -120,6 +123,9 @@ int main (int argc, char *argv[]) {
             case 'm':
                 max_mode = 1;
                 break;
+            case 'u':
+                runtime = atoi(optarg);
+                break;
             case 'l':
                 limit = atoi(optarg);
                 break;
@@ -158,7 +164,7 @@ int main (int argc, char *argv[]) {
                 return 0;
         }
     } else if (client_mode) {
-        client(address, port, rate, limit, max_mode);
+        client(address, port, rate, limit, runtime, max_mode);
     }
     close_logging();
     return 0;
