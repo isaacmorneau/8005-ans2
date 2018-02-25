@@ -159,7 +159,6 @@ int echo(connection * con) {
             return total;
         }
 
-        printf("emptying echo sent: %d\n", ret);
         con->bytes -= ret;
         total += ret;
     }
@@ -175,7 +174,6 @@ int echo(connection * con) {
             return total;
         }
         con->bytes = ret;
-        printf("echo recv: %d\n", ret);
 
         //echo the data back
         while (con->bytes > 0) {
@@ -183,7 +181,6 @@ int echo(connection * con) {
             if (ret == -1) break;
             con->bytes -= ret;
             total += ret;
-            printf("echo sent: %d\n", ret);
         }
         if (con->bytes <= 0 || ret <= 0) {
             break;
