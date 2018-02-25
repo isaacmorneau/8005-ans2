@@ -15,13 +15,12 @@
 #define LISTENQ 5
 #define OPEN_MAX USHRT_MAX//1024    //TODO: change to get max from sysconf (Advanced p. 51)
 #define BUFSIZE 4096
-
+/*
 struct pass_poll {
     int *thread_num;
     struct pollfd *client;
 };
-
-//struct pollfd *client;//[OPEN_MAX];
+*/
 int maxi;
 
 void * poll_handler(void *pass_thread) {
@@ -29,7 +28,6 @@ void * poll_handler(void *pass_thread) {
     int sockfd;
     struct pass_poll *pass = (struct pass_poll*) pass_thread;
     struct pollfd *client = pass->client;
-//    struct pollfd *client = pass_client;
     int *thread_num = pass->thread_num;
 
     cpu_set_t cpuset;
@@ -74,14 +72,12 @@ void poll_server(const char* port) {
     int listenfd, i, nready, connfd, sockfd;
     struct sockaddr_in cliaddr;
     socklen_t clilen;
-    //int total_threads = get_nprocs();
-    int total_threads = 1;
+    int total_threads = get_nprocs();
+    //int total_threads = 1;
     struct pollfd client[OPEN_MAX];
 
-//    client = malloc(OPEN_MAX*sizeof(struct pollfd));
     listenfd = make_bound(port);
     ensure(listen(listenfd, LISTENQ) != -1);
-    //set_non_blocking(listenfd);
 
     client[0].fd = listenfd;
     client[0].events = POLLRDNORM;
@@ -102,12 +98,10 @@ void poll_server(const char* port) {
         pass->client = client;
 
         ensure(pthread_attr_init(&attr) == 0);
-//        ensure(pthread_create(&tid, &attr, &poll_handler, (void *)client) == 0);
         ensure(pthread_create(&tid, &attr, &poll_handler, (void *)pass) == 0);
         ensure(pthread_detach(tid) == 0);
     }
 
-//#pragma omp parallel
     while(1) {
         nready = poll(client, maxi + 1, -1);    //for infinite timeout
 
@@ -142,24 +136,6 @@ void poll_server(const char* port) {
                     continue;       //no more fds
             }
         }
-
-        for(i = 1; i <= maxi; i++) {
-            connection *con;
-
-            if((sockfd = client[i].fd) < 0) {
-                continue;
-            }
-
-            ensure(con = calloc(1, sizeof(connection)));
-            init_connection(con, sockfd);
-
-            if(client[i].revents & (POLLRDNORM | POLLERR)) {
-                echo((connection *) con);
-            }
-
-            free(con);
-        }
-
     }
 }
 
