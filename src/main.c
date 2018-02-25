@@ -102,6 +102,9 @@ int main (int argc, char *argv[]) {
             case 'm':
                 max_mode = 1;
                 break;
+            case 'l':
+                limit = atoi(optarg);
+                break;
             case 'r':
                 rate = atoi(optarg);
                 break;
