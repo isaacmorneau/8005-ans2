@@ -17,7 +17,6 @@ void *echo_t(void *new_connection) {
     while(1) {
         echo((connection *)con);
     }
-
 }
 
 void server(const char* port) {
@@ -33,7 +32,6 @@ void server(const char* port) {
     while(client < MAX_THREADS){
         clilen = sizeof(cliaddr);
         connfd = malloc(sizeof(int));
-        //      if((*connfd = Accept(listenfd, (struct sockaddr*) &cliaddr, &clilen)) < 0) {
         if((*connfd = laccept(listenfd, (struct sockaddr*) &cliaddr, &clilen)) < 0) {
             if(errno == EINTR) {    //restart from interrupted system call
                 continue;
@@ -46,17 +44,10 @@ void server(const char* port) {
         client++;    //new client connection
         set_non_blocking(*connfd);
         set_recv_window(*connfd);
-        ///new_con(*connfd);
         ensure(con = calloc(1, sizeof(connection)));
         init_connection(con, *connfd);
         ensure((pthread_create(&threads[client], NULL, echo_t, (void*) con)) == 0);
-//        ensure(pthread_detach(threads[client]) == 0);
-/*
-        if(client == MAX_THREADS) {
-            //wait until client closes connections
-            while(1){}  //uhhh maybe do something more intelligent here
-        }
-*/
+        free(con);
     }
 
     for(int i = 0; i < client; i++) {
