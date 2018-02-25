@@ -142,7 +142,7 @@ void poll_server(const char* port) {
                     continue;       //no more fds
             }
         }
-
+/*
         for(i = 1; i <= maxi; i++) {
             connection *con;
 
@@ -159,7 +159,7 @@ void poll_server(const char* port) {
 
             free(con);
         }
-
+*/
     }
 }
 
