@@ -60,7 +60,7 @@ void server(const char* port) {
         }
 
         client++;    //new client connection
-        set_non_blocking(*connfd);
+//        set_non_blocking(*connfd);
         set_recv_window(*connfd);
         ensure(con = calloc(1, sizeof(connection)));
         init_connection(con, *connfd);
