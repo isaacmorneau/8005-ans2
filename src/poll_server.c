@@ -15,14 +15,23 @@
 #define LISTENQ 5
 #define OPEN_MAX USHRT_MAX//1024    //TODO: change to get max from sysconf (Advanced p. 51)
 #define BUFSIZE 4096
-/*
-struct pass_poll {
-    int *thread_num;
-    struct pollfd *client;
-};
-*/
+
+static volatile int running = 1;
+static void handler (int sig) {
+    running = 0;
+}
+
 int maxi;
 
+
+/*
+ * Author & Designer: Aing Ragunathan
+ * Date: 26-2-2017
+ * Functio: poll_handler
+ * Parameters: void
+ * Retunr: void
+ * Notes: worker thread for handling client data
+ */
 void * poll_handler(void *pass_thread) {
     int nready;
     int sockfd;
@@ -36,7 +45,7 @@ void * poll_handler(void *pass_thread) {
     CPU_SET(*thread_num, &cpuset);
     pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
-    while(1) {
+    while(running) {
         nready = poll(client, maxi + 1, -1);
 
         for(int i = 1; i <= maxi; i++) {
@@ -68,6 +77,15 @@ void * poll_handler(void *pass_thread) {
     free(client);
 }
 
+
+/*
+ * Author & Designer: Aing Ragunathan
+ * Date: 26-2-2017
+ * Functio: poll_server
+ * Parameters: void
+ * Retunr: void
+ * Notes: creates a server, accepts new clients and spawns worker threads
+ */
 void poll_server(const char* port) {
     int listenfd, i, nready, connfd, sockfd;
     struct sockaddr_in cliaddr;
@@ -102,7 +120,7 @@ void poll_server(const char* port) {
         ensure(pthread_detach(tid) == 0);
     }
 
-    while(1) {
+    while(running) {
         nready = poll(client, maxi + 1, -1);    //for infinite timeout
 
         if(client[0].revents & POLLRDNORM) {
