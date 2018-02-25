@@ -44,10 +44,12 @@ void server(const char* port) {
         client++;    //new client connection
         set_non_blocking(*connfd);
         set_recv_window(*connfd);
-        ensure(con = calloc(1, sizeof(connection)));
+//        ensure(con = calloc(1, sizeof(connection)));
+        con->sockfd = *connfd;
+        con->bytes = 0;
         init_connection(con, *connfd);
         ensure((pthread_create(&threads[client], NULL, echo_t, (void*) con)) == 0);
-        free(con);
+//        free(con);
     }
 
     for(int i = 0; i < client; i++) {
