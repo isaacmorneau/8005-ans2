@@ -27,9 +27,9 @@ int maxi;
 /*
  * Author & Designer: Aing Ragunathan
  * Date: 26-2-2017
- * Functio: poll_handler
- * Parameters: void
- * Retunr: void
+ * Function: poll_handler
+ * Parameters: void* pass_thread - struct holding the thread number and poll struct
+ * Return: void* - unused
  * Notes: worker thread for handling client data
  */
 void * poll_handler(void *pass_thread) {
@@ -75,19 +75,21 @@ void * poll_handler(void *pass_thread) {
 
     free(pass_thread);
     free(client);
+
+    return 0;
 }
 
 
 /*
  * Author & Designer: Aing Ragunathan
  * Date: 26-2-2017
- * Functio: poll_server
- * Parameters: void
- * Retunr: void
+ * Function: poll_server
+ * Parameters: const char* port - port number to listen on for clients
+ * Return: void - unused
  * Notes: creates a server, accepts new clients and spawns worker threads
  */
 void poll_server(const char* port) {
-    int listenfd, i, nready, connfd, sockfd;
+    int listenfd, i, nready, connfd;
     struct sockaddr_in cliaddr;
     socklen_t clilen;
     int total_threads = get_nprocs();

@@ -14,9 +14,9 @@
 /*
  * Author & Designer: Aing Ragunathan
  * Date: 26-2-2017
- * Functio: echo_t
- * Parameters: void
- * Retunr: void
+ * Function: echo_t
+ * Parameters: void *new_connection - connection struct holding fd to read and write to
+ * Return: void* - unused
  * Notes: worker thread for handling client data
  */
 void *echo_t(void *new_connection) {
@@ -32,9 +32,9 @@ void *echo_t(void *new_connection) {
 /*
  * Author & Designer: Aing Ragunathan
  * Date: 26-2-2017
- * Functio: server
- * Parameters: void
- * Retunr: void
+ * Function: server
+ * Parameters: const char* port - port number to listen on for clients
+ * Return: void - unused
  * Notes: creates server, accepts connections and spawns worker threads 
  */
 void server(const char* port) {
@@ -60,12 +60,10 @@ void server(const char* port) {
         }
 
         client++;    //new client connection
-//        set_non_blocking(*connfd);
         set_recv_window(*connfd);
         ensure(con = calloc(1, sizeof(connection)));
         init_connection(con, *connfd);
         ensure((pthread_create(&threads[client], NULL, echo_t, (void*) con)) == 0);
-//        ensure(pthread_detach(threads[client]) == 0);
     }
 
     for(int i = 0; i < client; i++) {
